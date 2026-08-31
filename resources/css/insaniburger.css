@@ -1,0 +1,15 @@
+@font-face {
+    font-family: 'Insaniburger';
+    font-style: normal;
+    font-weight: 400;
+    font-display: swap;
+    src: url('/fonts/Insanibu.woff') format('woff');
+}
+
+@font-face {
+    font-family: 'Insaniburger with Cheese';
+    font-style: normal;
+    font-weight: 400;
+    font-display: swap;
+    src: url('/fonts/Insanibu.woff') format('woff');
+}

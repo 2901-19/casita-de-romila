@@ -1,0 +1,6 @@
+{
+    "port": 8000,
+    "phpPath": null,
+    "appPath": null,
+    "browser": "auto"
+}
