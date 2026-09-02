@@ -105,8 +105,25 @@ Route::middleware('auth')->group(function () {
     Route::middleware('can:view-reports')->group(function () {
         Route::get('reports', [ReportController::class, 'index'])->name('reports.index');
         Route::get('reports/sales', [ReportController::class, 'sales'])->name('reports.sales');
+        Route::get('reports/sales/csv', [ReportController::class, 'salesExport'])->name('reports.sales-export');
         Route::get('reports/products', [ReportController::class, 'products'])->name('reports.products');
+        Route::get('reports/products/csv', [ReportController::class, 'productsExport'])->name('reports.products-export');
         Route::get('reports/credits', [ReportController::class, 'credits'])->name('reports.credits');
+        Route::get('reports/credits/csv', [ReportController::class, 'creditsExport'])->name('reports.credits-export');
+        Route::get('reports/top-days', [ReportController::class, 'topDays'])->name('reports.top-days');
+        Route::get('reports/top-days/csv', [ReportController::class, 'topDaysExport'])->name('reports.top-days-export');
+        Route::get('reports/waste', [ReportController::class, 'waste'])->name('reports.waste');
+        Route::get('reports/waste/csv', [ReportController::class, 'wasteExport'])->name('reports.waste-export');
+        Route::get('reports/profit-margin', [ReportController::class, 'profitMargin'])->name('reports.profit-margin');
+        Route::get('reports/profit-margin/csv', [ReportController::class, 'profitMarginExport'])->name('reports.profit-margin-export');
+        Route::get('reports/sales-by-schedule', [ReportController::class, 'salesBySchedule'])->name('reports.sales-by-schedule');
+        Route::get('reports/sales-by-schedule/csv', [ReportController::class, 'salesByScheduleExport'])->name('reports.sales-by-schedule-export');
+        Route::get('reports/slow-movers', [ReportController::class, 'slowMovers'])->name('reports.slow-movers');
+        Route::get('reports/slow-movers/csv', [ReportController::class, 'slowMoversExport'])->name('reports.slow-movers-export');
+        Route::get('reports/weekly-performance', [ReportController::class, 'weeklyPerformance'])->name('reports.weekly-performance');
+        Route::get('reports/weekly-performance/csv', [ReportController::class, 'weeklyPerformanceExport'])->name('reports.weekly-performance-export');
+        Route::get('reports/production-vs-sales', [ReportController::class, 'productionVsSales'])->name('reports.production-vs-sales');
+        Route::get('reports/production-vs-sales/csv', [ReportController::class, 'productionVsSalesExport'])->name('reports.production-vs-sales-export');
     });
 
     Route::middleware('can:manage-users')->group(function () {
