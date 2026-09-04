@@ -2226,6 +2226,18 @@ body.login-page {
     min-width: 0;
 }
 
+.scroll-viewport {
+    max-height: 40vh;
+    overflow: auto;
+}
+
+.empty-row-icon {
+    display: block;
+    font-size: 2rem;
+    opacity: 0.4;
+    margin-bottom: 0.5rem;
+}
+
 .num {
     font-variant-numeric: tabular-nums;
     font-feature-settings: "tnum";

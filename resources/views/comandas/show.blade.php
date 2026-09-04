@@ -358,7 +358,7 @@
                             <span class="text-muted small" x-text="editableLines().length + ' editable(s)'"></span>
                         </div>
 
-                        <div class="table-responsive mb-3" style="max-height:180px;overflow:auto;">
+                        <div class="table-responsive mb-3 scroll-viewport">
                             <table class="table table-sm align-middle mb-0">
                                 <tbody>
                                     <template x-for="product in editFiltered" :key="product.id">

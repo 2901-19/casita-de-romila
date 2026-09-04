@@ -74,7 +74,7 @@
                     </template>
                     <tr x-show="filteredProducts.length === 0">
                         <td colspan="4" class="text-center text-muted py-4">
-                            <i class="bi bi-search d-block" style="font-size:1.5rem;opacity:0.4;"></i>
+                            <i class="bi bi-search empty-row-icon"></i>
                             No hay productos que mostrar
                         </td>
                     </tr>

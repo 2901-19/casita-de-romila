@@ -88,7 +88,7 @@
                     @empty
                     <tr>
                         <td colspan="7" class="text-center text-muted py-4">
-                            <i class="bi bi-journal-text d-block" style="font-size:1.5rem;opacity:0.4;"></i>
+                            <i class="bi bi-journal-text empty-row-icon"></i>
                             No hay comandas.
                         </td>
                     </tr>
