@@ -25,7 +25,6 @@
         <div class="card-body">
             <div class="d-flex justify-content-between align-items-start flex-wrap gap-3">
                 <div class="d-flex align-items-center gap-3">
-                    <div class="comanda-num">#{{ $comanda->comanda_number }}</div>
                     <div>
                         <h1 class="card-title h5 mb-1">Comanda {{ $comanda->comanda_number }}</h1>
                         <div class="d-flex align-items-center flex-wrap gap-2">

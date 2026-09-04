@@ -2,6 +2,8 @@
 
 @section('title', 'POS / Ventas')
 
+@section('page-shell', 'panel')
+
 @section('topbar-actions')
 <div class="d-flex align-items-center gap-2">
     <span class="text-muted" style="font-size:0.85rem;">
@@ -15,6 +17,7 @@
 @endsection
 
 @section('content')
+<div class="panel-root">
 <div class="pos-layout" x-data="posApp()" @pos-clear-cart.window="clearCart()">
 
     {{-- Left: Categories + Products --}}
@@ -287,6 +290,7 @@
             </div>
         </div>
     </div>
+</div>
 </div>
 @endsection
 
