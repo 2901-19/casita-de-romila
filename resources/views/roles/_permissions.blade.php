@@ -38,7 +38,7 @@
                     <td colspan="2" class="perm-module-header">
                         <i class="bi {{ $moduleIcons[$moduleName] ?? 'bi-folder' }} me-1"></i>
                         <strong>{{ $moduleName }}</strong>
-                        <span class="text-muted fw-normal ms-1" style="font-size:0.78rem;">
+                        <span class="text-muted fw-normal ms-1 small">
                             ({{ $perms->count() }} permiso{{ $perms->count() !== 1 ? 's' : '' }})
                         </span>
                     </td>

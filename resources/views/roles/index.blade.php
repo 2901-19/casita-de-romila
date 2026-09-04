@@ -13,7 +13,7 @@
 
 @section('content')
 <div class="card">
-    <div class="p-3 border-bottom" style="border-color: var(--border) !important;">
+    <div class="p-3 border-bottom">
         <h2 class="section-title mb-0">Roles y permisos</h2>
     </div>
     <div class="table-responsive">
