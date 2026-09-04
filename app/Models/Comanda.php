@@ -12,8 +12,8 @@ class Comanda extends Model
     use HasFactory;
 
     protected $fillable = [
-        'comanda_number', 'user_id', 'status', 'order_type',
-        'customer_name', 'notes', 'sale_id', 'total',
+        'comanda_number', 'user_id', 'status',
+        'customer_name', 'sale_id', 'total',
     ];
 
     protected function casts(): array
@@ -28,9 +28,10 @@ class Comanda extends Model
     public const STATUS_ENTREGADA = 'entregada';
     public const STATUS_COBRADA = 'cobrada';
 
-    public const ORDER_DELIVERY = 'delivery';
-    public const ORDER_LOCAL = 'local';
-    public const ORDER_PARA_LLEVAR = 'para_llevar';
+    // Aliases to item-level types, keeping the same constant values for compatibility.
+    public const ORDER_DELIVERY = ComandaItem::ORDER_DELIVERY;
+    public const ORDER_LOCAL = ComandaItem::ORDER_LOCAL;
+    public const ORDER_PARA_LLEVAR = ComandaItem::ORDER_PARA_LLEVAR;
 
     public function user(): BelongsTo
     {
@@ -45,6 +46,11 @@ class Comanda extends Model
     public function items(): HasMany
     {
         return $this->hasMany(ComandaItem::class);
+    }
+
+    public function payments(): HasMany
+    {
+        return $this->hasMany(ComandaPayment::class);
     }
 
     public function getStatusLabelAttribute(): string
@@ -67,16 +73,6 @@ class Comanda extends Model
         };
     }
 
-    public function getOrderTypeLabelAttribute(): string
-    {
-        return match ($this->order_type) {
-            self::ORDER_DELIVERY => 'Delivery',
-            self::ORDER_LOCAL => 'Consumo local',
-            self::ORDER_PARA_LLEVAR => 'Para llevar',
-            default => $this->order_type,
-        };
-    }
-
     public function getTotalBsAttribute(): float
     {
         return (float) $this->total;
@@ -88,9 +84,9 @@ class Comanda extends Model
         return $rate > 0 ? round((float) $this->total / $rate, 2) : 0;
     }
 
-    public function getIsDeliveryAttribute(): bool
+    public function hasDeliveryItems(): bool
     {
-        return $this->order_type === self::ORDER_DELIVERY;
+        return $this->items->contains(fn ($item) => $item->isDelivery());
     }
 
     public function allItemsDelivered(): bool
@@ -102,5 +98,35 @@ class Comanda extends Model
     public function deliveredItemsCount(): int
     {
         return (int) $this->items->sum('delivered_quantity');
+    }
+
+    public function collectedTotal(): float
+    {
+        return (float) $this->payments()->sum('amount');
+    }
+
+    public function pendingTotal(): float
+    {
+        return round((float) $this->total - $this->collectedTotal(), 2);
+    }
+
+    public function isFullyCollected(): bool
+    {
+        return $this->payments()->exists()
+            && $this->pendingTotal() <= 0;
+    }
+
+    public function typeBadges(): array
+    {
+        return $this->items
+            ->pluck('order_type')
+            ->filter()
+            ->unique()
+            ->values()
+            ->map(fn ($t) => [
+                'label' => (new ComandaItem)->setAttribute('order_type', $t)->order_type_label,
+                'badge' => (new ComandaItem)->setAttribute('order_type', $t)->order_type_badge,
+            ])
+            ->all();
     }
 }

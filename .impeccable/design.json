@@ -1,0 +1,161 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-09-04T18:36:32.449Z",
+  "title": "Design System: Casita de Romila",
+  "extensions": {
+    "colorMeta": {
+      "rosa-chicle": {
+        "role": "primary",
+        "displayName": "Rosa Chicle",
+        "canonical": "#ff8fda",
+        "tonalRamp": ["oklch(0.35 0.16 350)", "oklch(0.42 0.17 350)", "oklch(0.50 0.18 350)", "oklch(0.58 0.19 350)", "oklch(0.66 0.19 350)", "oklch(0.74 0.19 350)", "oklch(0.82 0.17 350)", "oklch(0.90 0.12 350)"]
+      },
+      "menta-lima": {
+        "role": "secondary",
+        "displayName": "Menta Lima",
+        "canonical": "#8fffb4",
+        "tonalRamp": ["oklch(0.40 0.12 155)", "oklch(0.48 0.13 155)", "oklch(0.56 0.14 155)", "oklch(0.64 0.14 155)", "oklch(0.72 0.15 155)", "oklch(0.80 0.14 155)", "oklch(0.88 0.11 155)", "oklch(0.95 0.06 155)"]
+      },
+      "moka": {
+        "role": "neutral",
+        "displayName": "Moka",
+        "canonical": "#2a232b",
+        "tonalRamp": ["oklch(0.22 0.008 350)", "oklch(0.27 0.01 350)", "oklch(0.33 0.012 350)", "oklch(0.40 0.012 350)", "oklch(0.48 0.012 350)", "oklch(0.58 0.01 350)", "oklch(0.70 0.008 350)", "oklch(0.82 0.005 350)"]
+      },
+      "almendra": {
+        "role": "neutral",
+        "displayName": "Almendra",
+        "canonical": "#faf7fa",
+        "tonalRamp": ["oklch(0.86 0.006 350)", "oklch(0.89 0.006 350)", "oklch(0.92 0.006 350)", "oklch(0.94 0.005 350)", "oklch(0.96 0.005 350)", "oklch(0.97 0.004 350)", "oklch(0.98 0.004 350)", "oklch(0.99 0.003 350)"]
+      },
+      "perla": {
+        "role": "neutral",
+        "displayName": "Perla",
+        "canonical": "#ece4ec",
+        "tonalRamp": ["oklch(0.80 0.01 340)", "oklch(0.83 0.01 340)", "oklch(0.86 0.009 340)", "oklch(0.88 0.009 340)", "oklch(0.90 0.008 340)", "oklch(0.92 0.007 340)", "oklch(0.94 0.006 340)", "oklch(0.96 0.004 340)"]
+      },
+      "verde-exito": {
+        "role": "neutral",
+        "displayName": "Verde Éxito",
+        "canonical": "#1da55a",
+        "tonalRamp": ["oklch(0.35 0.12 155)", "oklch(0.42 0.13 155)", "oklch(0.49 0.14 155)", "oklch(0.55 0.15 155)", "oklch(0.62 0.15 155)", "oklch(0.70 0.13 155)", "oklch(0.79 0.10 155)", "oklch(0.88 0.06 155)"]
+      }
+    },
+    "typographyMeta": {
+      "display": {
+        "displayName": "Display (Insaniburger)",
+        "purpose": "Marca, títulos de página y encabezados de tarjeta; nunca párrafos ni inputs."
+      },
+      "body": {
+        "displayName": "Body (Montserrat)",
+        "purpose": "Todo el texto legible: controles, celdas, descripciones."
+      }
+    },
+    "shadows": [
+      { "name": "ambient-low", "value": "0 1px 2px oklch(0.3 0.01 40 / 0.03), 0 6px 18px oklch(0.3 0.01 40 / 0.05)", "purpose": "Tarjetas genéricas en reposo, apenas flotadas." },
+      { "name": "hover-lift", "value": "0 6px 20px oklch(0.15 0.1 25 / 0.14)", "purpose": "Tarjetas de producto al hover/focus: la elevación interactiva." },
+      { "name": "logo-glow", "value": "0 4px 10px rgba(224, 126, 192, 0.35)", "purpose": "Halo de marca bajo el logo-mark." },
+      { "name": "modal-deep", "value": "0 18px 50px oklch(0.25 0.01 40 / 0.25)", "purpose": "Profundidad máxima, solo en modales." },
+      { "name": "focus-ring", "value": "0 0 0 0.2rem var(--brand-ring)", "purpose": "Anillo de foco de controles con clase bs-focus-ring." }
+    ],
+    "motion": [
+      { "name": "ease-fast", "value": "0.12s ease", "purpose": "Estados de navegación, filas de tabla, botones de icono." },
+      { "name": "ease-medium", "value": "0.15s ease", "purpose": "Tarjetas de producto, categorías." }
+    ],
+    "breakpoints": [
+      { "name": "lg", "value": "991px" },
+      { "name": "sm", "value": "575px" }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "La acción del servicio: fondo rosa chicle, texto moka profundo.",
+      "html": "<button class=\"ds-btn-primary\">Cobrar comanda</button>",
+      "css": ".ds-btn-primary { background: var(--brand); color: var(--on-brand); border: 1px solid var(--brand); padding: 0.55rem 1rem; border-radius: 0.6rem; font-weight: 600; font-size: 0.9rem; font-family: inherit; transition: background-color 0.15s ease, border-color 0.15s ease; } .ds-btn-primary:hover { background: var(--brand-hover); border-color: var(--brand-hover); } .ds-btn-primary:active { background: var(--brand-active); border-color: var(--brand-active); } .ds-btn-primary:focus-visible { outline: none; box-shadow: 0 0 0 0.2rem var(--brand-ring); }"
+    },
+    {
+      "name": "Outline Button",
+      "kind": "button",
+      "refersTo": "button-primary-outline",
+      "description": "Acción secundaria junto a la primaria: borde y tinta rosa, se rellena suave al hover.",
+      "html": "<button class=\"ds-btn-outline\">Editar</button>",
+      "css": ".ds-btn-outline { background: transparent; color: var(--brand); border: 1px solid var(--brand); padding: 0.55rem 1rem; border-radius: 0.6rem; font-weight: 600; font-size: 0.9rem; font-family: inherit; transition: background-color 0.15s ease, color 0.15s ease; } .ds-btn-outline:hover { background: var(--brand-soft); color: var(--brand); } .ds-btn-outline:focus-visible { outline: none; box-shadow: 0 0 0 0.2rem var(--brand-ring); }"
+    },
+    {
+      "name": "Input Field",
+      "kind": "input",
+      "refersTo": "input-text",
+      "description": "Campo de formulario: blanco nube, borde perla, radio suave, sin sombra de foco.",
+      "html": "<label class=\"ds-label\" for=\"ds-field\">Nombre del cliente</label><input id=\"ds-field\" class=\"ds-input\" type=\"text\" placeholder=\"Escribe aquí\">",
+      "css": ".ds-input { width: 100%; padding: 0.55rem 0.75rem; border-radius: 0.6rem; border: 1px solid var(--border); background: #fff; color: var(--fg); font-size: 0.9rem; font-family: inherit; } .ds-input::placeholder { color: oklch(0.68 0.01 60); } .ds-input:focus { border-color: oklch(0.72 0.01 50); box-shadow: none; outline: none; } .ds-label { display: block; font-weight: 600; font-size: 0.88rem; color: var(--fg); margin-bottom: 0.35rem; }"
+    },
+    {
+      "name": "Status Badge (Éxito)",
+      "kind": "chip",
+      "refersTo": "badge-soft-success",
+      "description": "Estado cobrado/entregado: píldora de tinta verde sobre fondo menta suave.",
+      "html": "<span class=\"ds-badge\"><svg viewBox=\"0 0 16 16\" width=\"12\" height=\"12\" fill=\"currentColor\" aria-hidden=\"true\"><path d=\"M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14zm3.5-8.3-1.3-1.3L7.2 8.4 5.8 7l-1.3 1.3 2.7 2.7 4.3-4.3z\"/></svg>Cobrada</span>",
+      "css": ".ds-badge { display: inline-flex; align-items: center; gap: 0.3rem; padding: 0.25rem 0.6rem; border-radius: 999px; background: var(--success-soft); color: var(--success); font-size: 0.74rem; font-weight: 600; font-family: inherit; }"
+    },
+    {
+      "name": "Active Nav Link",
+      "kind": "nav",
+      "refersTo": "nav-link-active",
+      "description": "Sección activa del menú lateral: píldora rosa chicle con texto moka profundo.",
+      "html": "<a class=\"ds-nav ds-nav-active\" href=\"#\"><svg viewBox=\"0 0 16 16\" width=\"16\" height=\"16\" fill=\"currentColor\" aria-hidden=\"true\"><path d=\"M1 2.5A1.5 1.5 0 0 1 2.5 1h3A1.5 1.5 0 0 1 7 2.5v3A1.5 1.5 0 0 1 5.5 7h-3A1.5 1.5 0 0 1 1 5.5v-3zM9 2.5A1.5 1.5 0 0 1 10.5 1h3A1.5 1.5 0 0 1 15 2.5v3A1.5 1.5 0 0 1 13.5 7h-3A1.5 1.5 0 0 1 9 5.5v-3zM1 10.5A1.5 1.5 0 0 1 2.5 9h3A1.5 1.5 0 0 1 7 10.5v3A1.5 1.5 0 0 1 5.5 15h-3A1.5 1.5 0 0 1 1 13.5v-3zM9 10.5a1.5 1.5 0 0 1 1.5-1.5h3a1.5 1.5 0 0 1 1.5 1.5v3a1.5 1.5 0 0 1-1.5 1.5h-3A1.5 1.5 0 0 1 9 13.5v-3z\"/></svg>Comandas</a>",
+      "css": ".ds-nav { display: flex; align-items: center; gap: 0.7rem; padding: 0.55rem 0.75rem; border-radius: 0.6rem; color: var(--muted); font-size: 0.9rem; font-weight: 500; text-decoration: none; font-family: inherit; white-space: nowrap; transition: background-color 0.12s ease, color 0.12s ease; } .ds-nav:hover { color: var(--fg); background: var(--bg); } .ds-nav-active { color: var(--on-brand); background: var(--brand); } .ds-nav-active:hover { color: var(--on-brand); background: var(--brand-hover); }"
+    },
+    {
+      "name": "Product Card (POS)",
+      "kind": "card",
+      "refersTo": "product-card",
+      "description": "Tarjeta táctil del frente de venta: plano en reposo, borde rosa + sombra al hover.",
+      "html": "<button class=\"ds-prod\"><span class=\"ds-prod-icon\"><svg viewBox=\"0 0 16 16\" width=\"24\" height=\"24\" fill=\"currentColor\" aria-hidden=\"true\"><path d=\"M2 2h12v12H2V2zm1 1v10h10V3H3z\"/></svg></span><span class=\"ds-prod-name\">Hamburguesa Casita</span><span class=\"ds-prod-price\">Bs 12,00</span></button>",
+      "css": ".ds-prod { display: flex; flex-direction: column; align-items: center; gap: 0.45rem; padding: 0.9rem 0.7rem 0.7rem; border-radius: 0.75rem; border: 1px solid var(--border); background: #fff; cursor: pointer; text-align: center; font-family: inherit; transition: border-color 0.15s ease, box-shadow 0.15s ease; } .ds-prod:hover, .ds-prod:focus-visible { border-color: var(--brand); box-shadow: 0 6px 20px oklch(0.15 0.1 25 / 0.14); outline: none; } .ds-prod-icon { display: grid; place-items: center; width: 52px; height: 52px; border-radius: 0.6rem; background: var(--brand-soft); color: var(--brand); font-size: 1.3rem; } .ds-prod-name { font-size: 0.82rem; font-weight: 600; color: var(--fg); line-height: 1.3; } .ds-prod-price { font-size: 0.85rem; font-weight: 700; color: var(--brand); }"
+    },
+    {
+      "name": "Category Chip",
+      "kind": "chip",
+      "refersTo": "cat-btn",
+      "description": "Filtro de categoría: píldora con borde; activo se llena de rosa chicle.",
+      "html": "<div><button class=\"ds-cat\">Todas</button><button class=\"ds-cat ds-cat-active\">Hamburguesas</button></div>",
+      "css": ".ds-cat { padding: 0.4rem 0.85rem; border-radius: 999px; border: 1px solid var(--border); background: #fff; color: var(--fg); font-size: 0.84rem; font-weight: 600; cursor: pointer; font-family: inherit; transition: all 0.15s ease; } .ds-cat:hover { background: var(--bg); } .ds-cat-active { background: var(--brand); border-color: var(--brand); color: var(--on-brand); }"
+    }
+  ],
+  "narrative": {
+    "northStar": "El Mostrador de Confianza",
+    "overview": "Un mostrador cálido y amable donde ningún pedido se pierde. El sistema se comporta como la recepcionista ideal del local: agradable de tratar, impecable en la cuenta y absolutamente fiable con los pedidos. La personalidad es dulce pero decidida: una paleta de golosinas (rosa chicle y menta lima) asentada sobre neutros suaves (moka, almendra y perla), tipografía de letrero escrito a mano que da voz amistosa a los títulos, y una operación impecable debajo. Es un sistema de modo Operate: la velocidad del servicio y la claridad del estado ganan sobre la expresión. El rosa es el acento operativo — acción, selección, estado activo; la menta comunica éxito y atención; los neutros cargan el contenido. La densidad es cómoda y aireada: tarjetas de producto táctiles en el POS, tablas espaciadas para escaneo en administración. La geometría es amiga: casi nada es anguloso. Inputs, botones y navegación comparten una curva suave (0.6rem); las tarjetas de producto son un poco más redondas (0.75rem); el contenedor grande del carrito (0.9rem); los estados y categorías, píldoras completas (999px). Las superficies descansan planas; la profundidad responde al estado: una sombra ligera al hover, una sombra profunda solo sobre los modales.",
+    "keyCharacteristics": [
+      "Dúo de golosinas: rosa chicle para acción, menta lima para éxito — siempre sobre neutros que cargan el contenido",
+      "Texto sobre rosa en moka profundo (--on-brand), nunca blanco",
+      "Dos voces tipográficas: Insaniburger (letrero escrito a mano) para marca y títulos; Montserrat para el cuerpo",
+      "Curvas suaves por todas partes; nada menor a 0.5rem en controles interactivos",
+      "Plano en reposo, luz al hover, sombra profunda solo en modales",
+      "Estados siempre visibles de un vistazo: badges píldora con tinta y fondo suave del mismo color"
+    ],
+    "rules": [
+      { "name": "La Regla del Contraste Dulce", "body": "Texto sobre rosa chicle es siempre moka profundo (#3d1233), nunca blanco. La legibilidad dulce es la firma.", "section": "colors" },
+      { "name": "La Regla del Rosa Contado", "body": "El rosa es el acento operativo y debe parecer escaso: acciones y estados activos, no paisajes completos. Cuando una pantalla siente mucho rosa, está mal resuelta.", "section": "colors" },
+      { "name": "La Regla del Letrero Solo", "body": "Insaniburger nunca se usa para párrafos, tablas o inputs; su voz es para lo que se mira, no para lo que se lee.", "section": "typography" },
+      { "name": "La Regla del Reposo Plano", "body": "Las superficies descansan planas; la sombra es la respuesta al estado (hover, focus, modal). Una tarjeta con sombra sin interacción es ruido.", "section": "elevation" }
+    ],
+    "dos": [
+      "Do usar --on-brand (#3d1233) como texto siempre que el fondo sea Rosa Chicle, y nunca blanco.",
+      "Do reservar radios menores (0.6rem) para controles y subir a 0.75/0.9 sólo donde el ojo debe agrupar (tarjeta de producto, carrito).",
+      "Do expresar estados con píldoras de tinta + fondo suave del mismo color (badge-soft), de un vistazo.",
+      "Do dejar las superficies planas en reposo y responder con sombra solo en hover/focus/modal.",
+      "Do usar Insaniburger solo para marca y títulos; Montserrat para todo lo legible.",
+      "Do recortar la altura del contenedor de items al viewport con scroll interno para que los formularios altos no estiren la página."
+    ],
+    "donts": [
+      "Don't usar texto blanco sobre rosa chicle — rompe la legibilidad dulce.",
+      "Don't inundar una pantalla de rosa; el rosa es el acento operativo y su escasez es el punto.",
+      "Don't introducir esquinas angulosas (<0.5rem) en componentes interactivos.",
+      "Don't dar sombra permanente a las tarjetas; la elevación es respuesta al estado.",
+      "Don't usar mayúsculas fuera de las cabeceras de tabla (0.74rem uppercase) — el resto del texto va en caja normal."
+    ]
+  }
+}

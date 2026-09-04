@@ -31,7 +31,7 @@
                 <i class="bi bi-search search-icon-pos" aria-hidden="true"></i>
                 <input type="search" class="form-control" placeholder="Buscar producto..." x-model="searchQuery">
             </div>
-            <span class="text-muted" style="font-size:0.8rem;" x-text="Object.keys(cart).length + ' item(s)'"></span>
+            <span class="text-muted" style="font-size:0.8rem;" x-text="lines.length + ' item(s)'"></span>
         </div>
 
         <div class="table-responsive flex-grow-1 overflow-auto">
@@ -59,6 +59,9 @@
                                 <span x-text="product.name"></span>
                                 <template x-if="product.is_combo">
                                     <span class="badge-soft success ms-1">Combo</span>
+                                </template>
+                                <template x-if="product.is_demanda">
+                                    <span class="badge-soft info ms-1">Demanda</span>
                                 </template>
                             </td>
                             <td class="text-end">Bs <span x-text="formatNumber(product.sale_price)"></span></td>
@@ -89,8 +92,8 @@
             </div>
 
             <div class="pos-cart-items">
-                <template x-for="item in cartItems" :key="item.product_id">
-                    <div class="cart-item">
+                <template x-for="item in lines" :key="item.key">
+                    <div class="cart-item cart-item-line">
                         <div class="cart-item-info">
                             <span class="cart-item-name" x-text="item.name"></span>
                             <span class="cart-item-unit" x-text="'Bs ' + formatNumber(item.sale_price) + ' c/u'"></span>
@@ -98,31 +101,48 @@
                         <div class="cart-item-controls">
                             <input type="hidden" :name="'cart[' + item.key + '][product_id]'" :value="item.product_id">
                             <input type="hidden" :name="'cart[' + item.key + '][quantity]'" :value="item.quantity">
-                            <button type="button" class="qty-btn" @click="decreaseQty(item.product_id)" aria-label="Reducir">
-                                <i class="bi bi-dash"></i>
-                            </button>
-                            <input type="number" class="qty-input" :value="item.quantity" min="1" readonly aria-label="Cantidad">
-                            <button type="button" class="qty-btn" @click="increaseQty(item.product_id)" aria-label="Aumentar">
-                                <i class="bi bi-plus"></i>
-                            </button>
+                            <input type="hidden" :name="'cart[' + item.key + '][order_type]'" :value="item.order_type">
+                            <input type="hidden" :name="'cart[' + item.key + '][note]'" :value="item.note">
+                            <template x-if="!item.is_demanda">
+                                <div class="d-inline-flex align-items-center gap-1">
+                                    <button type="button" class="qty-btn" @click="decreaseQty(item.key)" aria-label="Reducir">
+                                        <i class="bi bi-dash"></i>
+                                    </button>
+                                    <input type="number" class="qty-input" :value="item.quantity" min="1" readonly aria-label="Cantidad">
+                                    <button type="button" class="qty-btn" @click="increaseQty(item.key)" aria-label="Aumentar">
+                                        <i class="bi bi-plus"></i>
+                                    </button>
+                                </div>
+                            </template>
+                            <template x-if="item.is_demanda">
+                                <span class="badge-soft info">1 ud</span>
+                            </template>
                         </div>
                         <div class="cart-item-subtotal">
                             <span x-text="'Bs ' + formatNumber(item.sale_price * item.quantity)"></span>
-                            <button type="button" class="remove-btn" @click="removeFromCart(item.product_id)" aria-label="Quitar">
+                            <button type="button" class="remove-btn" @click="removeLine(item.key)" aria-label="Quitar">
                                 <i class="bi bi-trash"></i>
                             </button>
+                        </div>
+                        <div class="cart-item-options w-100">
+                            <select class="form-select form-select-sm" x-model="item.order_type">
+                                <option value="local">Consumo local</option>
+                                <option value="para_llevar">Para llevar</option>
+                                <option value="delivery">Delivery</option>
+                            </select>
+                            <input type="text" class="form-control form-control-sm" x-model="item.note" placeholder="Nota (opcional)">
                         </div>
                     </div>
                 </template>
 
-                <div x-show="Object.keys(cart).length === 0" class="pos-cart-empty">
+                <div x-show="lines.length === 0" class="pos-cart-empty">
                     <i class="bi bi-journal-text"></i>
                     <p>Comanda vacía</p>
                     <small>Agrega productos al pedido</small>
                 </div>
             </div>
 
-            <div class="pos-cart-footer" x-show="Object.keys(cart).length > 0" x-cloak>
+            <div class="pos-cart-footer" x-show="lines.length > 0" x-cloak>
                 <div class="pos-totals">
                     <div class="total-row total-final">
                         <span>Total</span>
@@ -131,29 +151,22 @@
                 </div>
 
                 <div class="mb-3">
-                    <label class="form-label mb-1"><i class="bi bi-bag me-1"></i> Tipo de pedido</label>
-                    <select name="order_type" class="form-select form-select-sm">
+                    <label class="form-label mb-1"><i class="bi bi-bag me-1"></i> Aplicar tipo a todos los items</label>
+                    <select class="form-select form-select-sm" x-model="defaultOrderType" @change="applyOrderTypeToAll()">
                         <option value="local">Consumo local</option>
                         <option value="para_llevar">Para llevar</option>
                         <option value="delivery">Delivery</option>
                     </select>
                 </div>
 
-                <div class="mb-3">
+                <div class="mb-3" x-show="hasDeliveryLine" x-cloak>
                     <label for="comandaCustomer" class="form-label mb-1">
                         <i class="bi bi-person-badge me-1"></i> Nombre (delivery)
                     </label>
                     <input id="comandaCustomer" type="text" name="customer_name" class="form-control form-control-sm" placeholder="Opcional">
                 </div>
 
-                <div class="mb-3">
-                    <label for="comandaNotes" class="form-label mb-1">
-                        <i class="bi bi-chat-left-text me-1"></i> Nota para cocina
-                    </label>
-                    <input id="comandaNotes" type="text" name="notes" class="form-control form-control-sm" placeholder="Opcional">
-                </div>
-
-                <button type="submit" class="btn btn-brand w-100" :disabled="Object.keys(cart).length === 0">
+                <button type="submit" class="btn btn-brand w-100" :disabled="lines.length === 0">
                     <i class="bi bi-check2-circle me-1"></i> Registrar comanda
                 </button>
             </div>
@@ -167,14 +180,16 @@
 document.addEventListener('alpine:init', function () {
     Alpine.data('comandaApp', function () {
         return {
-            cart: {},
+            lines: [],
+            nextKey: 0,
             selectedCategory: 'all',
             searchQuery: '',
+            defaultOrderType: 'local',
 
             get products() {
                 return [
                     @foreach($products as $p)
-                        { id: {{ $p->id }}, name: {!! json_encode($p->name) !!}, sale_price: {{ number_format($p->sale_price * $rate, 2, '.', '') }}, category_id: {{ $p->category_id ?? 'null' }}, image: {!! json_encode($p->image ? asset('storage/'.$p->image) : '') !!} },
+                        { id: {{ $p->id }}, name: {!! json_encode($p->name) !!}, sale_price: {{ number_format($p->sale_price * $rate, 2, '.', '') }}, category_id: {{ $p->category_id ?? 'null' }}, image: {!! json_encode($p->image ? asset('storage/'.$p->image) : '') !!}, is_demanda: {{ $p->control_type === 'demanda' ? 'true' : 'false' }} },
                     @endforeach
                 ];
             },
@@ -187,6 +202,7 @@ document.addEventListener('alpine:init', function () {
                             name: {!! json_encode($combo->name) !!},
                             sale_price: {{ number_format($combo->sale_price * $rate, 2, '.', '') }},
                             is_combo: true,
+                            is_demanda: false,
                         },
                     @endforeach
                 ];
@@ -204,33 +220,49 @@ document.addEventListener('alpine:init', function () {
                 });
             },
 
-            get cartItems() {
-                return Object.entries(this.cart).map(([key, quantity], idx) => {
-                    let product = this.allItems.find(p => String(p.id) === String(key));
-                    return {
-                        key: idx,
-                        product_id: String(key),
-                        name: product ? product.name : key,
-                        sale_price: product ? product.sale_price : 0,
-                        quantity: quantity,
-                    };
-                });
+            get subtotal() {
+                return this.lines.reduce((sum, item) => sum + item.sale_price * item.quantity, 0);
             },
 
-            get subtotal() {
-                return this.cartItems.reduce((sum, item) => sum + item.sale_price * item.quantity, 0);
+            get hasDeliveryLine() {
+                return this.lines.some(l => l.order_type === 'delivery');
             },
 
             addToCart(product) {
-                const key = String(product.id);
-                this.cart[key] = (this.cart[key] || 0) + 1;
+                if (!product.is_demanda) {
+                    let line = this.lines.find(l => String(l.product_id) === String(product.id) && !l.is_demanda);
+                    if (line) {
+                        line.quantity++;
+                        return;
+                    }
+                }
+                this.lines.push({
+                    key: 'n' + (this.nextKey++),
+                    product_id: product.id,
+                    name: product.name,
+                    sale_price: product.sale_price,
+                    is_combo: product.is_combo || false,
+                    is_demanda: product.is_demanda || false,
+                    quantity: 1,
+                    order_type: this.defaultOrderType,
+                    note: '',
+                });
             },
-            increaseQty(key) { this.cart[String(key)]++; },
+            increaseQty(key) {
+                let line = this.lines.find(l => l.key === key);
+                if (line) { line.quantity++; }
+            },
             decreaseQty(key) {
-                const k = String(key);
-                if (this.cart[k] > 1) { this.cart[k]--; } else { this.removeFromCart(k); }
+                let idx = this.lines.findIndex(l => l.key === key);
+                if (idx === -1) { return; }
+                if (this.lines[idx].quantity > 1) { this.lines[idx].quantity--; } else { this.lines.splice(idx, 1); }
             },
-            removeFromCart(key) { delete this.cart[String(key)] },
+            removeLine(key) {
+                this.lines = this.lines.filter(l => l.key !== key);
+            },
+            applyOrderTypeToAll() {
+                this.lines.forEach(l => { l.order_type = this.defaultOrderType; });
+            },
 
             formatNumber(n) {
                 return n.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });

@@ -56,8 +56,10 @@
                         <td class="num">#{{ $comanda->comanda_number }}</td>
                         <td class="text-muted">{{ $comanda->created_at->format('d/m/Y h:i a') }}</td>
                         <td>
-                            <span class="badge-soft muted">{{ $comanda->order_type_label }}</span>
-                            @if($comanda->customer_name)
+                            @foreach($comanda->typeBadges() as $tb)
+                                <span class="badge-soft {{ $tb['badge'] }} mb-1">{{ $tb['label'] }}</span>
+                            @endforeach
+                            @if($comanda->hasDeliveryItems() && $comanda->customer_name)
                                 <span class="d-block text-muted small">{{ $comanda->customer_name }}</span>
                             @endif
                         </td>
