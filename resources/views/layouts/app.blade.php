@@ -220,6 +220,8 @@
     </script>
     @endif
 
+    @stack('charts')
+
     @stack('scripts')
 </body>
 </html>

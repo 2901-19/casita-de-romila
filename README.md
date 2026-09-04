@@ -131,9 +131,30 @@ En Windows, también puedes arrancar el sistema con el lanzador incluido en `lau
 
 ---
 
+## Optimización de producción (equipos de bajos recursos)
+
+Tras desplegar los cambios, y siempre que se modifiquen rutas, config o vistas en el servidor, ejecuta los caches de Laravel (necesita permisos de escritura en `bootstrap/cache/` y `storage/`):
+
+```bash
+php artisan config:cache
+php artisan route:cache
+php artisan view:cache
+php artisan event:cache
+```
+
+> Después de tocar vistas de Blade, recuerda limpiar las compiladas: `Remove-Item storage/framework/views/*.php -Force` (o `php artisan view:clear`).
+
+**OPcache de PHP** (recomendado en servidores Windows/IIS o Nginx, no con `artisan serve`):
+- Habilita `opcache.enable=1` con `opcache.memory_consumption=64`, `opcache.max_accelerated_files=10000` y `opcache.revalidate_freq=60`.
+- `php artisan serve` (servidor de desarrollo) **no** usa OPcache ni mantiene keep-alive; para producción usa un servidor real (Apache/Nginx/IIS + PHP-FPM).
+
+**Assets:** el frontend está dividido en bundles (`app.js` global; `charts.js` solo en Dashboard; `pos.js` solo en POS) y las fuentes están limitadas a `latin` con 2 pesos, para reducir la carga en equipos modestos. Los archivos tienen hash Vite para cachear con `Cache-Control` largo.
+
+---
+
 ## Realizar los tests
 
-La suite completa son **185 tests**:
+La suite completa son **217 tests**:
 
 ```bash
 ./vendor/bin/phpunit

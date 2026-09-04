@@ -46,7 +46,7 @@
                        x-model="searchQuery"
                        aria-label="Buscar producto">
             </div>
-            <nav class="pos-pager mb-0 mt-0" x-show="filteredProducts.length > pageSize" aria-label="Paginación de productos" style="flex-shrink:0;">
+            <nav class="pos-pager mb-0 mt-0" x-show="totalPages > 1" aria-label="Paginación de productos" style="flex-shrink:0;">
                 <button type="button" class="cat-btn" @click="prevPage()" :disabled="page === 1" aria-label="Página anterior">&lsaquo;</button>
                 <span x-text="page + ' / ' + totalPages"></span>
                 <button type="button" class="cat-btn" @click="nextPage()" :disabled="page >= totalPages" aria-label="Página siguiente">&rsaquo;</button>
@@ -65,6 +65,12 @@
                     </tr>
                 </thead>
                 <tbody>
+                    <tr x-show="loading">
+                        <td colspan="4" class="text-center text-muted py-4">
+                            <div class="spinner-border spinner-border-sm me-2" role="status"></div>
+                            Cargando productos...
+                        </td>
+                    </tr>
                     <template x-for="product in paginatedProducts" :key="product.id">
                         <tr>
                             <td>
@@ -91,7 +97,7 @@
                             </td>
                         </tr>
                     </template>
-                    <tr x-show="filteredProducts.length === 0">
+                    <tr x-show="!loading && filteredProducts.length === 0">
                         <td colspan="4" class="text-center text-muted py-4">
                             <i class="bi bi-search d-block" style="font-size:1.5rem;opacity:0.4;"></i>
                             No hay productos que mostrar
@@ -292,203 +298,5 @@
 @endsection
 
 @push('scripts')
-<script>
-var checkoutModalInstance = null;
-document.addEventListener('alpine:init', function () {
-    Alpine.data('posApp', function () {
-        return {
-            cart: {},
-            selectedCategory: 'all',
-            searchQuery: '',
-            page: 1,
-            pageSize: 9,
-            paymentMethod: 'efectivo',
-            customerId: '',
-            lastSaleTotal: 0,
-            lastSalePaymentMethod: '',
-            _receiptTime: '',
-
-            init: function () {
-                this.cart = {};
-                this.$watch('searchQuery', function () { this.page = 1; }.bind(this));
-                this.$watch('selectedCategory', function () { this.page = 1; }.bind(this));
-            },
-
-            get products() {
-                return [
-                    @foreach($products as $product)
-                        { id: {{ $product->id }}, name: {!! json_encode($product->name) !!}, sale_price: {{ number_format($product->sale_price * $rate, 2, '.', '') }}, category_id: {{ $product->category_id ?? 'null' }}, image: {!! json_encode($product->image ? asset('storage/'.$product->image) : '') !!} },
-                    @endforeach
-                ];
-            },
-
-            get combos() {
-                return [
-                    @foreach($combos as $combo)
-                        {
-                            id: 'combo_{{ $combo->id }}',
-                            name: {!! json_encode($combo->name) !!},
-                            sale_price: {{ number_format($combo->sale_price * $rate, 2, '.', '') }},
-                            is_combo: true,
-                            components: {!! json_encode($combo->products->map(function($p) { return ['id' => $p->id, 'name' => $p->name, 'quantity' => $p->pivot->quantity]; })->values()->toArray()) !!}
-                        },
-                    @endforeach
-                ];
-            },
-
-            get allSalableItems() {
-                return [...this.products, ...this.combos];
-            },
-
-            get filteredProducts() {
-                return this.allSalableItems.filter(p => {
-                    let matchCat = this.selectedCategory === 'all' || p.category_id === this.selectedCategory;
-                    let matchSearch = this.searchQuery === '' || p.name.toLowerCase().includes(this.searchQuery.toLowerCase());
-                    return matchCat && matchSearch;
-                });
-            },
-
-            get totalPages() {
-                return Math.max(1, Math.ceil(this.filteredProducts.length / this.pageSize));
-            },
-
-            get paginatedProducts() {
-                var start = (this.page - 1) * this.pageSize;
-                return this.filteredProducts.slice(start, start + this.pageSize);
-            },
-
-            prevPage() {
-                if (this.page > 1) {
-                    this.page--;
-                }
-            },
-
-            nextPage() {
-                if (this.page < this.totalPages) {
-                    this.page++;
-                }
-            },
-
-            get subtotal() {
-                return Object.values(this.cart).reduce((sum, item) => sum + (item.price * item.quantity), 0);
-            },
-
-            get cartItems() {
-                return Object.values(this.cart);
-            },
-
-            updateReceiptTime() {
-                this._receiptTime = new Date().toLocaleString('es-VE', {
-                    day: '2-digit', month: 'short', year: 'numeric',
-                    hour: '2-digit', minute: '2-digit'
-                });
-            },
-
-            get currentTime() {
-                return this._receiptTime;
-            },
-
-            get paymentMethodLabel() {
-                return this.methodLabel(this.paymentMethod);
-            },
-
-            get selectedCustomerName() {
-                if (!this.customerId) return '';
-                var option = document.querySelector('#posCustomer option[value="' + this.customerId + '"]');
-                return option ? option.textContent.trim() : '';
-            },
-
-            methodLabel: function (method) {
-                var labels = { efectivo: 'Efectivo', biopago: 'Biopago', pago_movil: 'Pago Móvil', pdv: 'PDV', credito: 'Crédito' };
-                return labels[method] || method;
-            },
-
-            addToCart(product) {
-                if (this.cart[product.id]) {
-                    this.cart[product.id].quantity++;
-                } else {
-                    var cartItem = {
-                        product_id: product.id,
-                        name: product.name,
-                        price: parseFloat(product.sale_price),
-                        quantity: 1,
-                    };
-                    if (product.is_combo) {
-                        cartItem.is_combo = true;
-                        cartItem.components = product.components || [];
-                    }
-                    this.cart[product.id] = cartItem;
-                }
-            },
-
-            removeFromCart(id) {
-                delete this.cart[id];
-            },
-
-            increaseQty(id) {
-                this.cart[id].quantity++;
-            },
-
-            decreaseQty(id) {
-                if (this.cart[id].quantity > 1) {
-                    this.cart[id].quantity--;
-                } else {
-                    this.removeFromCart(id);
-                }
-            },
-
-            clearCart: function () {
-                this.cart = {};
-                this.paymentMethod = 'efectivo';
-            },
-
-            formatNumber: function (n) {
-                return n.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-            },
-
-            processCheckout: async function () {
-                let bootstrapModal = bootstrap.Modal.getInstance(document.getElementById('checkoutModal'));
-                bootstrapModal.hide();
-
-                try {
-                    let response = await fetch('/pos', {
-                        method: 'POST',
-                        headers: {
-                            'X-CSRF-TOKEN': document.querySelector('meta[name=csrf-token]').content,
-                            'Accept': 'json',
-                            'Content-Type': 'application/json',
-                        },
-                        body: JSON.stringify({
-                            cart: this.cart,
-                            payment_method: this.paymentMethod,
-                            customer_id: this.paymentMethod === 'credito' ? this.customerId : null,
-                        }),
-                    });
-
-                    let data = await response.json();
-
-                    if (response.ok) {
-                        this.lastSaleTotal = this.subtotal;
-                        this.lastSalePaymentMethod = this.paymentMethod;
-                        this.clearCart();
-                        let successModal = new bootstrap.Modal(document.getElementById('successModal'));
-                        successModal.show();
-                    } else {
-                        var errorMsg = data.error || data.message || 'Error al procesar la venta.';
-                        if (data.errors) {
-                            var firstError = Object.values(data.errors)[0];
-                            if (Array.isArray(firstError)) {
-                                errorMsg = firstError[0];
-                            }
-                        }
-                        window.toast.fire({ icon: 'error', title: errorMsg });
-                    }
-                } catch (err) {
-                    window.toast.fire({ icon: 'error', title: 'Error de conexión. Intenta de nuevo.' });
-                }
-            },
-        };
-    });
-});
-</script>
+    @vite(['resources/js/pos.js'])
 @endpush

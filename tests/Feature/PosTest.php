@@ -45,7 +45,7 @@ class PosTest extends TestCase
         $response->assertSee('Bebidas');
     }
 
-    public function test_pos_shows_products_in_javascript(): void
+    public function test_pos_endpoint_returns_product_data(): void
     {
         $user = User::factory()->create();
         $this->actingAs($user);
@@ -57,13 +57,14 @@ class PosTest extends TestCase
             'sale_price' => 2.50,
         ]);
 
-        $response = $this->get('/pos');
+        $response = $this->getJson('/pos/products');
 
         $response->assertStatus(200);
         $this->assertNotNull($product->id);
+        $response->assertJsonPath('items.0.id', $product->id);
     }
 
-    public function test_pos_only_shows_active_products(): void
+    public function test_pos_endpoint_only_shows_active_products(): void
     {
         $user = User::factory()->create();
         $this->actingAs($user);
@@ -71,13 +72,14 @@ class PosTest extends TestCase
         Product::factory()->create(['name' => 'Activo', 'is_active' => true, 'category_id' => $cat->id]);
         Product::factory()->create(['name' => 'Inactivo', 'is_active' => false, 'category_id' => $cat->id]);
 
-        $response = $this->get('/pos');
+        $response = $this->getJson('/pos/products');
 
-        $response->assertStatus(200);
-        $this->assertNotNull($cat->id);
+        $response->assertStatus(200)
+            ->assertJsonPath('total', 1)
+            ->assertJsonPath('items.0.name', 'Activo');
     }
 
-    public function test_pos_shows_uncategorized_products(): void
+    public function test_pos_endpoint_shows_uncategorized_products(): void
     {
         $user = User::factory()->create();
         $this->actingAs($user);
@@ -87,10 +89,12 @@ class PosTest extends TestCase
             'is_active' => true,
         ]);
 
-        $response = $this->get('/pos');
+        $response = $this->getJson('/pos/products');
 
-        $response->assertStatus(200);
-        $response->assertSee('Producto Sin Categoria', false);
+        $response->assertStatus(200)
+            ->assertJsonPath('total', 1)
+            ->assertJsonPath('items.0.name', 'Producto Sin Categoria')
+            ->assertJsonPath('items.0.is_combo', false);
     }
 
     public function test_pos_hides_inactive_products_without_category(): void
@@ -103,10 +107,31 @@ class PosTest extends TestCase
             'is_active' => false,
         ]);
 
-        $response = $this->get('/pos');
+        $response = $this->getJson('/pos/products');
 
-        $response->assertStatus(200);
-        $response->assertDontSee('Inactivo Sin Categoria', false);
+        $response->assertStatus(200)
+            ->assertJsonPath('total', 0);
+    }
+
+    public function test_pos_endpoint_filters_by_search_and_category(): void
+    {
+        $user = User::factory()->create();
+        $this->actingAs($user);
+        $bebidas = Category::factory()->create(['name' => 'Bebidas']);
+        $snacks = Category::factory()->create(['name' => 'Snacks']);
+        Product::factory()->create(['name' => 'Refresco', 'is_active' => true, 'category_id' => $bebidas->id]);
+        Product::factory()->create(['name' => 'Jugo', 'is_active' => true, 'category_id' => $bebidas->id]);
+        Product::factory()->create(['name' => 'Papas', 'is_active' => true, 'category_id' => $snacks->id]);
+
+        $response = $this->getJson('/pos/products?search=refresco');
+        $response->assertStatus(200)
+            ->assertJsonPath('total', 1)
+            ->assertJsonPath('items.0.name', 'Refresco');
+
+        $response = $this->getJson('/pos/products?category_id='.$snacks->id);
+        $response->assertStatus(200)
+            ->assertJsonPath('total', 1)
+            ->assertJsonPath('items.0.name', 'Papas');
     }
 
     public function test_credit_sale_requires_customer(): void

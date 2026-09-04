@@ -202,5 +202,9 @@
             </table>
         </div>
     </div>
-</section>
+    </section>
 @endsection
+
+@push('charts')
+    @vite(['resources/js/charts.js'])
+@endpush

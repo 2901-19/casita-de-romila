@@ -1,11 +1,9 @@
 import * as bootstrap from 'bootstrap';
 import Alpine from 'alpinejs';
 import Swal from 'sweetalert2';
-import { initCharts } from './charts';
 
 window.bootstrap = bootstrap;
 window.Alpine = Alpine;
-Alpine.start();
 
 window.Swal = Swal;
 window.toast = Swal.mixin({
@@ -16,7 +14,7 @@ window.toast = Swal.mixin({
     timerProgressBar: true,
 });
 
-document.addEventListener('DOMContentLoaded', initCharts);
+document.addEventListener('DOMContentLoaded', () => Alpine.start(), { once: true });
 
 document.addEventListener('submit', function (e) {
     var form = e.target;

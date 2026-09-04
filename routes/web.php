@@ -75,6 +75,7 @@ Route::middleware('auth')->group(function () {
 
     Route::get('pos', [PosController::class, 'index'])->name('pos.index');
     Route::post('pos', [PosController::class, 'store'])->name('pos.store');
+    Route::get('pos/products', [PosController::class, 'products'])->name('pos.products');
 
     Route::get('comandas', [ComandaController::class, 'index'])->name('comandas.index');
     Route::get('comandas/create', [ComandaController::class, 'create'])->name('comandas.create');

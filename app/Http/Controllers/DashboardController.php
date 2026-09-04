@@ -16,11 +16,6 @@ class DashboardController extends Controller
         $yesterday = now()->subDay()->startOfDay();
         $weekStart = now()->subDays(6)->startOfDay();
 
-        $salesToday = Sale::where('status', 'completada')
-            ->whereDate('created_at', $today)
-            ->with('payments')
-            ->get();
-
         $totalToday = (float) Sale::where('status', 'completada')
             ->whereDate('created_at', $today)
             ->sum('total');
@@ -54,14 +49,25 @@ class DashboardController extends Controller
 
         $weeklySales = Sale::where('status', 'completada')
             ->whereDate('created_at', '>=', $weekStart)
-            ->get(['created_at', 'total'])
-            ->groupBy(fn($s) => $s->created_at->format('Y-m-d'))
-            ->map(fn($group) => (float) $group->sum('total'));
+            ->selectRaw('DATE(created_at) as day, SUM(total) as total')
+            ->groupBy('day')
+            ->pluck('total', 'day')
+            ->map(fn($total) => (float) $total);
 
-        $paymentTotals = $salesToday
-            ->flatMap->methodAmounts()
-            ->groupBy('method')
-            ->map(fn($group) => $group->sum('amount'));
+        $paymentTotals = Sale::where('sales.status', 'completada')
+            ->whereDate('sales.created_at', $today)
+            ->whereNull('sales.payment_method')
+            ->join('sale_payments', 'sales.id', '=', 'sale_payments.sale_id')
+            ->selectRaw('sale_payments.method, SUM(sale_payments.amount) as total')
+            ->groupBy('sale_payments.method')
+            ->pluck('total', 'method')
+            ->map(fn($total) => (float) $total);
+
+        $creditTotal = (float) Sale::where('status', 'completada')
+            ->where('payment_method', 'credito')
+            ->whereDate('created_at', $today)
+            ->sum('total');
+        $paymentTotals['credito'] = $creditTotal;
 
         return view('dashboard', [
             'user' => auth()->user(),

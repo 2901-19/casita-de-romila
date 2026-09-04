@@ -123,3 +123,5 @@ export function initCharts() {
         if (cfg) createChart(el, cfg);
     });
 }
+
+document.addEventListener('DOMContentLoaded', initCharts);

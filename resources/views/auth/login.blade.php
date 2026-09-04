@@ -8,7 +8,8 @@
     @vite(['resources/css/app.css', 'resources/js/app.js'])
 </head>
 <body>
-    <main class="min-vh-100 d-flex align-items-center justify-content-center p-3">
+    <main class="min-vh-100 d-flex align-items-center justify-content-center p-3"
+          style="background: linear-gradient(135deg, var(--brand) 0%, #e8a5dc 40%, var(--accent) 100%);">
         <div class="card" style="width:100%;max-width:420px;">
             <div class="card-body p-4 p-sm-5">
                 <div class="d-flex align-items-center gap-3 mb-4">
