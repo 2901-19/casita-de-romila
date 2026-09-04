@@ -34,31 +34,25 @@
                 <i class="bi bi-search search-icon-pos" aria-hidden="true"></i>
                 <input type="search" class="form-control" placeholder="Buscar producto..." x-model="searchQuery">
             </div>
-            <span class="text-muted" style="font-size:0.8rem;" x-text="lines.length + ' item(s)'"></span>
+            <span class="text-muted small" style="flex-shrink:0;" x-text="lines.length + ' item(s)'"></span>
         </div>
 
-        <div class="table-responsive flex-grow-1 overflow-auto">
-            <table class="table table-sm align-middle mb-0">
-                <thead>
-                    <tr>
-                        <th style="width:48px;"></th>
-                        <th>Producto</th>
-                        <th class="text-end">Precio</th>
-                        <th style="width:60px;"></th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <template x-for="product in filteredProducts" :key="product.id">
-                        <tr>
-                            <td>
-                                <template x-if="product.image">
-                                    <img :src="product.image" alt="" class="pos-thumb" loading="lazy">
-                                </template>
-                                <template x-if="!product.image">
-                                    <span class="pos-thumb pos-thumb-placeholder"><i class="bi bi-box"></i></span>
-                                </template>
-                            </td>
-                            <td>
+        <div class="pos-grid-wrap flex-grow-1 overflow-auto">
+            <div class="pos-grid">
+                <template x-for="product in filteredProducts" :key="product.id">
+                    <button type="button" class="product-card"
+                            @click="addToCart(product)"
+                            :aria-label="'Agregar ' + product.name + ' al pedido'">
+                        <span class="product-card-thumb" aria-hidden="true">
+                            <template x-if="product.image">
+                                <img :src="product.image" alt="" class="pos-thumb" loading="lazy">
+                            </template>
+                            <template x-if="!product.image">
+                                <i class="bi bi-box"></i>
+                            </template>
+                        </span>
+                        <span class="product-card-info">
+                            <span class="product-card-name">
                                 <span x-text="product.name"></span>
                                 <template x-if="product.is_combo">
                                     <span class="badge-soft success ms-1">Combo</span>
@@ -66,23 +60,20 @@
                                 <template x-if="product.is_demanda">
                                     <span class="badge-soft info ms-1">Demanda</span>
                                 </template>
-                            </td>
-                            <td class="text-end">Bs <span x-text="formatNumber(product.sale_price)"></span></td>
-                            <td class="text-end">
-                                <button class="btn btn-sm btn-brand" @click="addToCart(product)" aria-label="Agregar">
-                                    <i class="bi bi-plus"></i>
-                                </button>
-                            </td>
-                        </tr>
-                    </template>
-                    <tr x-show="filteredProducts.length === 0">
-                        <td colspan="4" class="text-center text-muted py-4">
-                            <i class="bi bi-search empty-row-icon"></i>
-                            No hay productos que mostrar
-                        </td>
-                    </tr>
-                </tbody>
-            </table>
+                            </span>
+                            <span class="product-card-price">
+                                Bs <span x-text="formatNumber(product.sale_price)"></span>
+                            </span>
+                        </span>
+                    </button>
+                </template>
+                <template x-if="filteredProducts.length === 0">
+                    <div class="pos-empty col-span-3">
+                        <i class="bi bi-search"></i>
+                        <p>No hay productos que mostrar</p>
+                    </div>
+                </template>
+            </div>
         </div>
     </div>
 
