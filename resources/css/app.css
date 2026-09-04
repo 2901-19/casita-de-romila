@@ -2238,6 +2238,11 @@ body.login-page {
     margin-bottom: 0.5rem;
 }
 
+.badge-soft.lg {
+    font-size: 0.9rem;
+    padding: 0.4rem 0.8rem;
+}
+
 .num {
     font-variant-numeric: tabular-nums;
     font-feature-settings: "tnum";

@@ -69,15 +69,16 @@
                         </td>
                         <td class="text-center">
                             <div class="d-inline-flex gap-1">
-                                <a href="{{ route('credits.show', $c) }}" class="btn btn-outline-secondary btn-sm">
+                                <a href="{{ route('credits.show', $c) }}" class="btn btn-icon-sm" title="Ver ficha">
                                     <i class="bi bi-eye"></i>
                                 </a>
-                                <button type="button" class="btn btn-outline-secondary btn-sm"
+                                <button type="button" class="btn btn-icon-sm"
                                         data-bs-toggle="modal" data-bs-target="#editCustomerModal"
                                         data-url="{{ route('credits.update', $c) }}"
                                         data-name="{{ $c->name }}" data-phone="{{ $c->phone }}"
                                         data-limit-type="{{ $c->credit_limit_type }}"
-                                        data-limit-amount="{{ $c->credit_limit_amount }}">
+                                        data-limit-amount="{{ $c->credit_limit_amount }}"
+                                        title="Editar cliente">
                                     <i class="bi bi-pencil"></i>
                                 </button>
                             </div>

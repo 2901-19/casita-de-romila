@@ -14,10 +14,10 @@
         <span class="avatar credit-avatar">{{ strtoupper(substr($customer->name, 0, 1)) }}</span>
         <div class="flex-grow-1 min-w-0">
             <h4 class="mb-1 text-truncate">{{ $customer->name }}</h4>
-            <p class="text-muted mb-1" style="font-size:0.82rem;">
+            <p class="text-muted small mb-1">
                 <i class="bi bi-whatsapp me-1"></i>{{ $customer->phone ?? 'Sin teléfono' }}
             </p>
-            <p class="mb-0" style="font-size:0.78rem; color:var(--muted);">
+            <p class="text-muted small mb-0">
                 <i class="bi bi-sliders me-1"></i>Límite:
                 @if($customer->hasDefinedLimit())
                     <strong>$ {{ number_format($customer->credit_limit_amount, 2, ',', '.') }}</strong>
@@ -31,10 +31,10 @@
             <span class="badge-soft {{ $customer->balance < 0 ? 'danger' : ($customer->balance > 0 ? 'success' : 'muted') }} mb-2 d-inline-block">
                 @if($customer->balance < 0) Adeuda @elseif($customer->balance > 0) A favor @else Al día @endif
             </span>
-            <p class="kpi-value" style="color:{{ $customer->balance < 0 ? 'var(--danger)' : ($customer->balance > 0 ? 'var(--success)' : 'var(--fg)') }};">
+            <p class="kpi-value {{ $customer->balance < 0 ? 'text-danger' : ($customer->balance > 0 ? 'text-success' : '') }}">
                 $ {{ number_format($customer->balance, 2, ',', '.') }}
             </p>
-            <p class="text-muted mb-0" style="font-size:0.75rem;">≈ Bs {{ number_format($customer->balance * $rate, 2, ',', '.') }} · saldo en USD</p>
+            <p class="text-muted small mb-0">≈ Bs {{ number_format($customer->balance * $rate, 2, ',', '.') }} · saldo en USD</p>
         </div>
     </div>
 </div>
@@ -71,7 +71,7 @@
                             <tr>
                                 <td>
                                     <a href="{{ route('sales.show', $cs) }}" class="text-decoration-none fw-semibold">#{{ $cs->id }}</a>
-                                    <span class="d-block text-muted" style="font-size:0.72rem;">{{ $cs->items->count() }} {{ $cs->items->count() === 1 ? 'producto' : 'productos' }}</span>
+                                    <span class="d-block text-muted small">{{ $cs->items->count() }} {{ $cs->items->count() === 1 ? 'producto' : 'productos' }}</span>
                                 </td>
                                 <td class="text-muted text-nowrap">{{ $cs->created_at->format('d/m/Y') }}</td>
                                 <td class="text-end num">Bs {{ number_format($cs->total, 2, ',', '.') }}</td>
@@ -107,7 +107,7 @@
                             @empty
                             <tr>
                                 <td colspan="6" class="text-center text-muted py-4">
-                                    <i class="bi bi-journal-x d-block mb-2" style="font-size:1.6rem;"></i>
+                                    <i class="bi bi-journal-x empty-row-icon"></i>
                                     Este cliente no tiene ventas a crédito.
                                 </td>
                             </tr>
@@ -131,14 +131,14 @@
                             {{ $mov->type === 'cargo' ? '-' : '+' }}$ {{ number_format($mov->amount, 2, ',', '.') }}
                         </strong>
                     </div>
-                    <div class="text-muted" style="font-size:0.72rem;">
+                    <div class="text-muted small">
                         {{ $mov->created_at->format('d/m/Y h:i a') }} · {{ $mov->user->name ?? '—' }}
                         @if($mov->rate)
                             · tasa {{ number_format($mov->rate, 2, ',', '.') }}
                         @endif
                     </div>
                     @if($mov->sale_id || $mov->notes)
-                        <div style="font-size:0.72rem; color:var(--muted);">
+                        <div class="small">
                             @if($mov->sale_id)
                                 <a href="{{ route('sales.show', $mov->sale_id) }}">Venta #{{ $mov->sale_id }}</a>
                             @endif
@@ -148,7 +148,7 @@
                 </div>
                 @empty
                 <div class="text-center text-muted py-4">
-                    <i class="bi bi-inbox d-block mb-2" style="font-size:1.4rem;"></i>
+                    <i class="bi bi-inbox empty-row-icon"></i>
                     No hay movimientos registrados.
                 </div>
                 @endforelse
@@ -168,8 +168,8 @@
                 </div>
                 <div class="modal-body text-center">
                     <p class="mb-2">Cobrar la venta <strong id="paySaleNum">#—</strong></p>
-                    <p class="kpi-value mb-1" style="font-size:1.7rem;">Bs <span id="payBsAmount">—</span></p>
-                    <p class="text-muted mb-0" style="font-size:0.8rem;">≈ $ <span id="payUsdAmount">—</span> USD · tasa Bs {{ number_format($rate, 2, ',', '.') }}</p>
+                    <p class="kpi-value mb-1">Bs <span id="payBsAmount">—</span></p>
+                    <p class="text-muted small mb-0">≈ $ <span id="payUsdAmount">—</span> USD · tasa Bs {{ number_format($rate, 2, ',', '.') }}</p>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>

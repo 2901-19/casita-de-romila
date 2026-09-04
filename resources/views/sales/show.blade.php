@@ -34,11 +34,11 @@
                         <span class="text-muted">{{ $sale->created_at->format('l, d F Y · h:i a') }}</span>
                     </div>
                     @if($sale->status === 'completada')
-                        <span class="badge-soft success" style="font-size:0.9rem; padding:0.4rem 0.8rem;">Completada</span>
+                        <span class="badge-soft success lg">Completada</span>
                     @elseif($sale->status === 'pendiente')
-                        <span class="badge-soft warning" style="font-size:0.9rem; padding:0.4rem 0.8rem;">Pendiente</span>
+                        <span class="badge-soft warning lg">Pendiente</span>
                     @else
-                        <span class="badge-soft danger" style="font-size:0.9rem; padding:0.4rem 0.8rem;">Anulada</span>
+                        <span class="badge-soft danger lg">Anulada</span>
                     @endif
                 </div>
 
