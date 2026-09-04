@@ -55,7 +55,7 @@
                 <h5 class="card-title mb-3">Por Metodo de Pago</h5>
                 @php($methodLabels = ['efectivo' => 'Efectivo', 'biopago' => 'Biopago', 'transferencia' => 'Transferencia', 'pago_movil' => 'Pago Movil', 'pdv' => 'PDV', 'credito' => 'Credito'])
                 <div class="table-responsive">
-                    <table class="table table-sm">
+                    <table class="table">
                         <thead>
                             <tr><th>Metodo</th><th class="text-end">Monto (Bs)</th><th class="text-end">% del Total</th></tr>
                         </thead>
