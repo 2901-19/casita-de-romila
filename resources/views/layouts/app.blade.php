@@ -112,7 +112,7 @@
                 </div>
             </header>
 
-            <main class="content p-3 p-lg-4">
+            <main class="content p-3 p-lg-4 {{ trim($__env->yieldContent('page-shell')) ? 'panel' : '' }}">
                 @yield('content')
             </main>
         </div>

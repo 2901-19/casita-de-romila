@@ -79,8 +79,8 @@ h6.card-title {
 
 .app {
     display: flex;
-    min-height: 100vh;
-    overflow: visible;
+    height: 100vh;
+    overflow: hidden;
 }
 
 /* ---- Sidebar ---- */
@@ -230,6 +230,19 @@ h6.card-title {
 }
 
 .content {
+    flex: 1 1 auto;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+}
+
+.content.panel {
+    overflow: hidden;
+    padding: 1rem;
+}
+
+.content.panel > .panel-root {
     flex: 1 1 auto;
     min-height: 0;
     display: flex;
@@ -984,7 +997,7 @@ body.login-page {
     gap: 1rem;
     flex: 1;
     min-height: 0;
-    height: calc(100vh - 7rem);
+    height: auto;
 }
 
 /* ---- Categories sidebar ---- */
@@ -1563,10 +1576,15 @@ body.login-page {
 }
 
 @media (max-width: 991px) {
+    .content.panel {
+        overflow-y: auto;
+    }
+
     .pos-layout {
         grid-template-columns: 1fr;
         grid-template-rows: 1fr auto;
         height: auto;
+        flex: none;
     }
 
     .pos-cart {
