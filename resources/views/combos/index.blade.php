@@ -58,7 +58,7 @@
                     <tr>
                         <td>
                             <div class="d-flex align-items-center gap-2">
-                                <span class="thumb" style="width:36px;height:36px;display:flex;align-items:center;justify-content:center;background:var(--bg2);border-radius:6px;">
+                                <span class="thumb">
                                     <i class="bi bi-box-seam"></i>
                                 </span>
                                 <span class="fw-semibold">{{ $combo->name }}</span>

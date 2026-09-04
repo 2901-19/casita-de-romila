@@ -14,7 +14,7 @@
 
 
 <div class="card">
-    <div class="p-3 border-bottom d-flex flex-wrap gap-2 align-items-center" style="border-color: var(--border) !important;">
+    <div class="p-3 border-bottom d-flex flex-wrap gap-2 align-items-center">
 
         <div class="search-box">
             <i class="bi bi-search search-icon" aria-hidden="true"></i>
@@ -96,8 +96,8 @@
     </div>
 
     @if($categories->hasPages())
-    <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 border-top p-3" style="border-color: var(--border) !important;">
-        <span class="text-muted" style="font-size: 0.84rem;">
+    <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 border-top p-3">
+        <span class="text-muted small">
             Mostrando {{ $categories->firstItem() }}-{{ $categories->lastItem() }} de {{ $categories->total() }}
         </span>
         <nav aria-label="Paginación">

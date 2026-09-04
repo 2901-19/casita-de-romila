@@ -2243,6 +2243,17 @@ body.login-page {
     padding: 0.4rem 0.8rem;
 }
 
+.bg-board {
+    background: var(--bg);
+}
+
+.form-zone {
+    background: var(--bg);
+    overflow: visible;
+    position: relative;
+    z-index: 1;
+}
+
 .num {
     font-variant-numeric: tabular-nums;
     font-feature-settings: "tnum";

@@ -29,7 +29,7 @@
 
                         <div class="mb-4">
                             <label class="form-label">Productos del combo</label>
-                            <div class="border rounded p-3" style="background: var(--bg2); overflow: visible; position: relative; z-index: 1;">
+                            <div class="border rounded p-3 form-zone">
 
                                 <div class="mb-3">
                                     <select id="productSelect" class="form-select">
@@ -98,9 +98,9 @@
                     </div>
 
                     <div class="col-12 col-lg-6">
-                        <div class="card" style="background: var(--bg2); border: none;">
+                        <div class="card bg-board border-0">
                             <div class="card-body">
-                                <h6 class="text-muted mb-3" style="font-size:0.8rem;text-transform:uppercase;letter-spacing:0.5px;">
+                                <h6 class="text-muted mb-3">
                                     <i class="bi bi-tag me-1"></i>Precio de Venta
                                 </h6>
 
