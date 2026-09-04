@@ -249,6 +249,13 @@ h6.card-title {
     flex-direction: column;
 }
 
+.content.panel .table thead th {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    background: var(--surface);
+}
+
 /* ---- Card ---- */
 .card {
     border: 1px solid var(--border);

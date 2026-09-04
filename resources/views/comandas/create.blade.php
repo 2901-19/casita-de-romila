@@ -2,6 +2,8 @@
 
 @section('title', 'Nueva Comanda')
 
+@section('page-shell', 'panel')
+
 @section('topbar-actions')
 <a href="{{ route('comandas.index') }}" class="btn btn-outline-secondary btn-sm">
     <i class="bi bi-arrow-left me-1"></i> Volver
@@ -9,6 +11,7 @@
 @endsection
 
 @section('content')
+<div class="panel-root">
 <div class="pos-layout" x-data="comandaApp()">
 
     {{-- Left: Products --}}
@@ -172,6 +175,7 @@
             </div>
         </form>
     </div>
+</div>
 </div>
 @endsection
 
