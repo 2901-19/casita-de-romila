@@ -92,7 +92,7 @@
                 </span>
                 <form action="{{ route('logout') }}" method="POST" class="d-inline">
                     @csrf
-                    <button type="submit" class="btn btn-link text-muted p-0" title="Cerrar sesión">
+                    <button type="submit" class="btn btn-icon" title="Cerrar sesión" aria-label="Cerrar sesión">
                         <i class="bi bi-box-arrow-right"></i>
                     </button>
                 </form>
@@ -197,7 +197,7 @@
                 </span>
                 <form action="{{ route('logout') }}" method="POST" class="d-inline">
                     @csrf
-                    <button type="submit" class="btn btn-link text-muted p-0">
+                    <button type="submit" class="btn btn-icon" title="Cerrar sesión" aria-label="Cerrar sesión">
                         <i class="bi bi-box-arrow-right"></i>
                     </button>
                 </form>
