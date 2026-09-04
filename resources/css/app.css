@@ -58,10 +58,23 @@ body {
     min-height: 100vh;
 }
 
-.font-display {
+/* ---- Encabezados con voz de letrero (Insaniburger) ---- */
+.card-title {
     font-family: "Insaniburger", "Montserrat", sans-serif;
     font-weight: 400;
     letter-spacing: 0.01em;
+    color: var(--fg);
+}
+
+h1.card-title,
+h2.card-title {
+    font-size: 1.4rem;
+}
+
+h4.card-title,
+h5.card-title,
+h6.card-title {
+    font-size: 1.05rem;
 }
 
 .app {
@@ -259,6 +272,81 @@ body {
     border-radius: 0.6rem;
 }
 
+/* ---- Shim: Botones Bootstrap -> tokens de diseño ---- */
+.btn-outline-secondary {
+    --bs-btn-color: var(--fg);
+    --bs-btn-border-color: var(--border);
+    --bs-btn-hover-bg: var(--bg);
+    --bs-btn-hover-border-color: oklch(0.78 0.02 60);
+    --bs-btn-hover-color: var(--fg);
+    --bs-btn-active-bg: var(--bg);
+    --bs-btn-active-border-color: var(--border);
+    --bs-btn-active-color: var(--fg);
+    font-weight: 600;
+    border-radius: 0.6rem;
+}
+
+.btn-outline-success {
+    --bs-btn-color: var(--success);
+    --bs-btn-border-color: color-mix(in srgb, var(--success) 45%, transparent);
+    --bs-btn-hover-bg: var(--success-soft);
+    --bs-btn-hover-border-color: var(--success);
+    --bs-btn-hover-color: var(--success);
+    --bs-btn-active-bg: var(--success-soft);
+    --bs-btn-active-border-color: var(--success);
+    --bs-btn-active-color: var(--success);
+    font-weight: 600;
+    border-radius: 0.6rem;
+}
+
+.btn-outline-info {
+    --bs-btn-color: var(--brand);
+    --bs-btn-border-color: color-mix(in srgb, var(--brand) 45%, var(--border));
+    --bs-btn-hover-bg: var(--brand-soft);
+    --bs-btn-hover-border-color: var(--brand);
+    --bs-btn-hover-color: var(--brand);
+    --bs-btn-active-bg: var(--brand-soft);
+    --bs-btn-active-border-color: var(--brand);
+    --bs-btn-active-color: var(--brand);
+    font-weight: 600;
+    border-radius: 0.6rem;
+}
+
+.btn-outline-danger {
+    --bs-btn-color: var(--danger);
+    --bs-btn-border-color: color-mix(in srgb, var(--danger) 45%, transparent);
+    --bs-btn-hover-bg: var(--danger-soft);
+    --bs-btn-hover-border-color: var(--danger);
+    --bs-btn-hover-color: var(--danger);
+    --bs-btn-active-bg: var(--danger-soft);
+    --bs-btn-active-border-color: var(--danger);
+    --bs-btn-active-color: var(--danger);
+    font-weight: 600;
+    border-radius: 0.6rem;
+}
+
+.btn-sm {
+    --bs-btn-padding-y: 0.4rem;
+    --bs-btn-padding-x: 0.75rem;
+    --bs-btn-font-size: 0.85rem;
+    border-radius: 0.6rem;
+}
+
+.form-control-sm {
+    border-radius: 0.6rem;
+    padding: 0.45rem 0.75rem;
+    font-size: 0.85rem;
+}
+
+.btn-link {
+    --bs-btn-color: var(--brand);
+    --bs-btn-hover-color: var(--brand-hover);
+    --bs-btn-hover-bg: transparent;
+    text-decoration: none;
+    font-weight: 600;
+    border-radius: 0.6rem;
+}
+
 .btn-icon {
     width: 40px;
     height: 40px;
@@ -412,47 +500,6 @@ body {
     background: var(--surface);
 }
 
-/* ---- Filter pills ---- */
-.filter-pill {
-    border: 1px solid var(--border);
-    background: var(--surface);
-    border-radius: 999px;
-    padding: 0.35rem 0.85rem;
-    font-size: 0.84rem;
-    font-weight: 500;
-    color: var(--muted);
-    cursor: pointer;
-    display: inline-flex;
-    align-items: center;
-    gap: 0.4rem;
-    transition: all 0.12s ease;
-}
-
-.filter-pill:hover {
-    color: var(--fg);
-    border-color: oklch(0.78 0.02 60);
-}
-
-.filter-pill.active {
-    color: var(--on-brand);
-    background: var(--brand);
-    border-color: var(--brand);
-}
-
-.filter-pill .pill-count {
-    background: var(--bg);
-    color: var(--muted);
-    font-size: 0.7rem;
-    font-weight: 600;
-    padding: 0.05rem 0.4rem;
-    border-radius: 999px;
-}
-
-.filter-pill.active .pill-count {
-    background: color-mix(in srgb, var(--on-brand) 12%, transparent);
-    color: var(--on-brand);
-}
-
 /* ---- Search input ---- */
 .search-input {
     position: relative;
@@ -472,59 +519,6 @@ body {
 
 .search-input input {
     padding-left: 2.2rem;
-}
-
-/* ---- Stats cards ---- */
-.stat-card {
-    padding: 1rem 1.1rem;
-    display: flex;
-    align-items: center;
-    gap: 0.85rem;
-}
-
-.stat-icon {
-    width: 44px;
-    height: 44px;
-    flex-shrink: 0;
-    border-radius: 0.6rem;
-    display: grid;
-    place-items: center;
-    font-size: 1.25rem;
-}
-
-.stat-icon.brand {
-    background: var(--brand-soft);
-    color: var(--brand);
-}
-
-.stat-icon.success {
-    background: var(--success-soft);
-    color: var(--success);
-}
-
-.stat-icon.danger {
-    background: var(--danger-soft);
-    color: var(--danger);
-}
-
-.stat-label {
-    font-size: 0.78rem;
-    color: var(--muted);
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-}
-
-.stat-value {
-    font-size: 1.55rem;
-    font-weight: 700;
-    color: var(--fg);
-    line-height: 1.1;
-    font-variant-numeric: tabular-nums;
-}
-
-.stat-value.danger {
-    color: var(--danger);
 }
 
 /* ---- Responsive ---- */
@@ -630,6 +624,10 @@ body.login-page {
     font-weight: 500;
 }
 
+.kpi-trend.down {
+    color: var(--danger);
+}
+
 .kpi-icon {
     width: 42px;
     height: 42px;
@@ -656,33 +654,6 @@ body.login-page {
 }
 
 .kpi-icon.danger {
-    background: var(--danger-soft);
-    color: var(--danger);
-}
-
-/* ---- Table ---- */
-.badge-method {
-    font-size: 0.74rem;
-    font-weight: 600;
-    padding: 0.3rem 0.6rem;
-    border-radius: 999px;
-    background: var(--bg);
-    color: oklch(0.42 0.02 50);
-}
-
-.badge-status {
-    font-size: 0.74rem;
-    font-weight: 600;
-    padding: 0.3rem 0.6rem;
-    border-radius: 999px;
-}
-
-.badge-status.ok {
-    background: var(--success-soft);
-    color: var(--success);
-}
-
-.badge-status.ko {
     background: var(--danger-soft);
     color: var(--danger);
 }
@@ -907,40 +878,6 @@ body.login-page {
     height: 100%;
     object-fit: cover;
     border-radius: inherit;
-}
-
-/* ---- Badges ---- */
-.badge-neutral {
-    font-size: 0.74rem;
-    font-weight: 600;
-    padding: 0.3rem 0.6rem;
-    border-radius: 999px;
-    background: var(--bg);
-    color: oklch(0.42 0.02 50);
-    white-space: nowrap;
-}
-
-.badge-type {
-    font-size: 0.74rem;
-    font-weight: 600;
-    padding: 0.3rem 0.6rem;
-    border-radius: 999px;
-    white-space: nowrap;
-}
-
-.badge-type.inventariable {
-    background: var(--info-soft, var(--brand-soft));
-    color: var(--info, var(--brand));
-}
-
-.badge-type.lote {
-    background: var(--brand-soft);
-    color: var(--brand);
-}
-
-.badge-type.demanda {
-    background: var(--bg);
-    color: oklch(0.42 0.02 50);
 }
 
 /* ---- Category page ---- */
@@ -1439,32 +1376,6 @@ body.login-page {
     border-top: 1px solid var(--border);
 }
 
-/* ---- Checkout modal ---- */
-.checkout-total {
-    text-align: center;
-    padding: 1rem;
-    background: var(--brand-soft);
-    border-radius: 0.75rem;
-    display: flex;
-    flex-direction: column;
-    gap: 0.25rem;
-}
-
-.checkout-label {
-    font-size: 0.85rem;
-    color: var(--brand);
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-}
-
-.checkout-amount {
-    font-size: 2rem;
-    font-weight: 800;
-    font-family: "Insaniburger", "Montserrat", sans-serif;
-    color: var(--brand);
-}
-
 .payment-option {
     flex: 1;
     display: flex;
@@ -1550,24 +1461,6 @@ body.login-page {
 .checkout-receipt {
     font-size: 0.88rem;
     overflow: visible;
-}
-
-.receipt-header {
-    background: var(--bg);
-    border-color: var(--border) !important;
-}
-
-.receipt-logo {
-    font-size: 1.1rem;
-    color: var(--brand);
-    line-height: 1;
-}
-
-.receipt-brand {
-    font-family: "Insaniburger", "Montserrat", sans-serif;
-    font-size: 0.95rem;
-    color: var(--fg);
-    display: block;
 }
 
 .receipt-datetime {
@@ -1896,25 +1789,6 @@ body.login-page {
     font-weight: 600;
 }
 
-.btn-lock {
-    border: 1px solid var(--border);
-    border-left: 0;
-    background: var(--surface);
-    color: var(--muted);
-    border-radius: 0 0.6rem 0.6rem 0;
-    padding: 0 0.7rem;
-}
-
-.btn-lock:hover {
-    background: var(--bg);
-    color: var(--fg);
-}
-
-.btn-lock:focus-visible {
-    box-shadow: 0 0 0 0.2rem var(--brand-ring);
-    border-color: var(--brand);
-}
-
 .status-section {
     border-top: 1px solid var(--border);
     margin-top: 1.5rem;
@@ -1977,8 +1851,12 @@ body.login-page {
 }
 
 .rate-card.vigente {
+    border-color: var(--brand);
+}
+
+.rate-card.vigente:hover {
     border-color: var(--brand-hover);
-    box-shadow: 0 0 0 3px color-mix(in srgb, var(--brand) 18%, transparent), 0 6px 18px oklch(0.3 0.01 40 / 0.05);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--brand) 18%, transparent), 0 6px 20px oklch(0.15 0.1 25 / 0.14);
 }
 
 .rate-top {
@@ -1995,8 +1873,6 @@ body.login-page {
     font-weight: 700;
     font-size: 0.82rem;
     color: var(--muted);
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
 }
 
 .rate-currency .flag {
@@ -2335,5 +2211,70 @@ body.login-page {
     object-fit: cover;
     display: block;
     border: 1px solid var(--border);
+}
+
+.pos-thumb-placeholder {
+    display: grid;
+    place-items: center;
+    background: var(--bg);
+    color: var(--muted);
+    font-size: 1.1rem;
+}
+
+/* ---- Clases de completado (usadas por las vistas, definidas aquí) ---- */
+.min-w-0 {
+    min-width: 0;
+}
+
+.num {
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: "tnum";
+}
+
+.card-sub {
+    font-size: 0.85rem;
+    color: var(--muted);
+    margin: 0.15rem 0 0;
+}
+
+.history-title {
+    font-family: "Insaniburger", "Montserrat", sans-serif;
+    font-size: 1.05rem;
+    font-weight: 400;
+    color: var(--fg);
+}
+
+.comanda-header {
+    border-top: 3px solid var(--brand);
+}
+
+.comanda-actions-card {
+    background: color-mix(in srgb, var(--brand-soft) 35%, var(--surface));
+    border-color: color-mix(in srgb, var(--brand) 35%, var(--border));
+}
+
+.pos-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 0.75rem;
+}
+
+.comanda-item .ci-namewrap {
+    min-width: 0;
+    flex: 1 1 auto;
+}
+
+.comanda-item .ci-amount {
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 0.15rem;
+}
+
+.comanda-item .ci-qty-label {
+    font-size: 0.76rem;
+    color: var(--muted);
 }
 
