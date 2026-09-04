@@ -12,7 +12,7 @@ class ExchangeRateController extends Controller
     public function index(): View
     {
         $latestRate = ExchangeRate::latest()->first();
-        $history = ExchangeRate::latest()->get();
+        $history = ExchangeRate::latest()->paginate(20);
 
         return view('exchange-rates.index', compact('latestRate', 'history'));
     }

@@ -92,9 +92,16 @@
                 </tbody>
             </table>
         </div>
-        <div class="d-flex justify-content-center">
-            {{ $mermas->withQueryString()->links() }}
+        @if($mermas->hasPages())
+        <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 border-top p-3">
+            <span class="text-muted small">
+                Mostrando {{ $mermas->firstItem() }}-{{ $mermas->lastItem() }} de {{ $mermas->total() }}
+            </span>
+            <nav aria-label="Paginación">
+                {{ $mermas->withQueryString()->links() }}
+            </nav>
         </div>
+        @endif
     </div>
 </div>
 @endsection

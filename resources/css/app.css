@@ -967,6 +967,11 @@ body.login-page {
 }
 
 /* ---- Pagination ---- */
+.pagination {
+    gap: 0.15rem;
+    margin-bottom: 0;
+}
+
 .page-link {
     color: var(--fg);
     border-color: var(--border);
@@ -983,14 +988,23 @@ body.login-page {
     color: var(--fg);
 }
 
-.page-link.active {
+.page-item.active .page-link {
     background: var(--brand);
     border-color: var(--brand);
     color: var(--on-brand);
 }
 
-.page-link.active:hover {
+.page-item.active .page-link:hover {
     background: var(--brand-hover);
+    border-color: var(--brand-hover);
+    color: var(--on-brand);
+}
+
+.page-item.disabled .page-link {
+    background: var(--surface);
+    color: var(--muted);
+    opacity: 0.55;
+    pointer-events: none;
 }
 
 /* ========================================

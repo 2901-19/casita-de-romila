@@ -96,9 +96,16 @@
                 </tbody>
             </table>
         </div>
-        <div class="d-flex justify-content-center">
-            {{ $comandas->withQueryString()->links() }}
+        @if($comandas->hasPages())
+        <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 border-top p-3">
+            <span class="text-muted small">
+                Mostrando {{ $comandas->firstItem() }}-{{ $comandas->lastItem() }} de {{ $comandas->total() }}
+            </span>
+            <nav aria-label="Paginación">
+                {{ $comandas->withQueryString()->links() }}
+            </nav>
         </div>
+        @endif
     </div>
 </div>
 @endsection
