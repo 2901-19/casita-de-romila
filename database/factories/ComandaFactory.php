@@ -16,7 +16,6 @@ class ComandaFactory extends Factory
             'comanda_number' => '0001',
             'user_id' => User::factory(),
             'status' => Comanda::STATUS_MONTADA,
-            'order_type' => Comanda::ORDER_LOCAL,
         ];
     }
 
@@ -28,10 +27,5 @@ class ComandaFactory extends Factory
     public function cobrada(): static
     {
         return $this->state(['status' => Comanda::STATUS_COBRADA]);
-    }
-
-    public function delivery(): static
-    {
-        return $this->state(['order_type' => Comanda::ORDER_DELIVERY]);
     }
 }

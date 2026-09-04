@@ -58,7 +58,7 @@
                     <tr>
                         <td>
                             <div class="d-flex align-items-center gap-2">
-                                <span class="thumb" style="width:36px;height:36px;display:flex;align-items:center;justify-content:center;background:var(--bg2);border-radius:6px;">
+                                <span class="thumb">
                                     <i class="bi bi-box-seam"></i>
                                 </span>
                                 <span class="fw-semibold">{{ $combo->name }}</span>
@@ -123,11 +123,11 @@
                     <tr>
                         <td colspan="5" class="text-center text-muted py-5">
                             @if(request()->filled('search') || (request('status') && request('status') !== 'all'))
-                                <i class="bi bi-search d-block" style="font-size:2rem;margin-bottom:0.5rem;opacity:0.4;"></i>
+                                <i class="bi bi-search empty-row-icon"></i>
                                 No se encontraron combos
                                 <a class="btn btn-outline-brand btn-sm mt-2" href="{{ route('combos.index') }}">Limpiar filtros</a>
                             @else
-                                <i class="bi bi-box-seam d-block" style="font-size:2rem;margin-bottom:0.5rem;opacity:0.4;"></i>
+                                <i class="bi bi-box-seam empty-row-icon"></i>
                                 No hay combos registrados
                             @endif
                         </td>

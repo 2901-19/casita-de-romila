@@ -25,9 +25,9 @@ class ComandaController extends Controller
 
     public function index(Request $request): View
     {
-        $comandas = Comanda::with(['user', 'items'])
+        $comandas = Comanda::with(['user', 'items', 'payments'])
             ->when($request->status, fn ($q) => $q->where('status', $request->status))
-            ->when($request->order_type, fn ($q) => $q->where('order_type', $request->order_type))
+            ->when($request->order_type, fn ($q) => $q->whereHas('items', fn ($q) => $q->where('order_type', $request->order_type)))
             ->orderByDesc('id')
             ->paginate(15)
             ->withQueryString();
@@ -37,7 +37,7 @@ class ComandaController extends Controller
 
     public function create(): View
     {
-        $products = Product::query()->active()->orderBy('name')->get(['id', 'name', 'sale_price', 'category_id', 'image']);
+        $products = Product::query()->active()->orderBy('name')->get(['id', 'name', 'sale_price', 'category_id', 'image', 'control_type']);
         $combos = Combo::active()->with('products')->orderBy('name')->get(['id', 'name', 'sale_price']);
         $categories = Category::orderBy('name')->get(['id', 'name']);
         $rate = (float) (ExchangeRate::latest()->first()?->rate ?? 1);
@@ -57,9 +57,7 @@ class ComandaController extends Controller
             'comanda_number' => $this->nextComandaNumber(),
             'user_id' => $request->user()->id,
             'status' => Comanda::STATUS_MONTADA,
-            'order_type' => $validated['order_type'],
-            'customer_name' => $validated['order_type'] === Comanda::ORDER_DELIVERY ? ($validated['customer_name'] ?? null) : null,
-            'notes' => $validated['notes'] ?? null,
+            'customer_name' => $validated['customer_name'] ?? null,
             'total' => $total,
             'sale_id' => null,
         ]);
@@ -73,11 +71,11 @@ class ComandaController extends Controller
 
     public function show(Comanda $comanda): View
     {
-        $comanda->load(['user', 'items']);
+        $comanda->load(['user', 'items', 'payments']);
         $this->syncDeliveredStatus($comanda);
 
         $rate = $this->currentRate();
-        $products = Product::query()->active()->orderBy('name')->get(['id', 'name', 'sale_price', 'category_id', 'image']);
+        $products = Product::query()->active()->orderBy('name')->get(['id', 'name', 'sale_price', 'category_id', 'image', 'control_type']);
         $combos = Combo::active()->with('products')->orderBy('name')->get(['id', 'name', 'sale_price']);
         $categories = Category::orderBy('name')->get(['id', 'name']);
         $customers = Customer::query()->where('is_active', true)->orderBy('name')->get(['id', 'name']);
@@ -90,23 +88,21 @@ class ComandaController extends Controller
         if ($comanda->status === Comanda::STATUS_COBRADA) {
             return redirect()
                 ->route('comandas.show', $comanda)
-                ->with('error', 'La comanda ya está cobrada y no se puede editar.');
+                ->with('error', 'La comanda ya está cerrada y no se puede editar.');
         }
 
         $validated = $request->validate($this->baseRules());
 
         $rate = $this->currentRate();
         $items = $this->buildItems($validated['cart'], $rate);
-        $total = $this->sumItems($items);
 
-        $comanda->items()->delete();
         $this->saveItems($comanda, $items);
+
+        $total = round((float) $comanda->items()->sum('subtotal'), 2);
 
         $comanda->update([
             'total' => $total,
-            'order_type' => $validated['order_type'],
-            'customer_name' => $validated['order_type'] === Comanda::ORDER_DELIVERY ? ($validated['customer_name'] ?? null) : null,
-            'notes' => $validated['notes'] ?? null,
+            'customer_name' => $validated['customer_name'] ?? null,
         ]);
 
         return redirect()
@@ -117,7 +113,7 @@ class ComandaController extends Controller
     public function markDelivered(Comanda $comanda): RedirectResponse
     {
         if ($comanda->status === Comanda::STATUS_COBRADA) {
-            return redirect()->route('comandas.show', $comanda)->with('error', 'La comanda ya está cobrada.');
+            return redirect()->route('comandas.show', $comanda)->with('error', 'La comanda ya está cerrada.');
         }
 
         $comanda->items()->update(['delivered_quantity' => DB::raw('quantity'), 'delivered_at' => now()]);
@@ -132,7 +128,7 @@ class ComandaController extends Controller
             abort(404);
         }
         if ($comanda->status === Comanda::STATUS_COBRADA) {
-            return redirect()->route('comandas.show', $comanda)->with('error', 'La comanda ya está cobrada.');
+            return redirect()->route('comandas.show', $comanda)->with('error', 'La comanda ya está cerrada.');
         }
 
         if ($item->delivered_quantity < $item->quantity) {
@@ -149,14 +145,7 @@ class ComandaController extends Controller
     public function collect(Request $request, Comanda $comanda): RedirectResponse
     {
         if ($comanda->status === Comanda::STATUS_COBRADA) {
-            return redirect()->route('comandas.show', $comanda)->with('error', 'La comanda ya está cobrada.');
-        }
-
-        $isDelivery = $comanda->is_delivery;
-        if (! $isDelivery && $comanda->status !== Comanda::STATUS_ENTREGADA) {
-            return redirect()
-                ->route('comandas.show', $comanda)
-                ->with('error', 'Debe marcar la comanda como entregada antes de cobrar.');
+            return redirect()->route('comandas.show', $comanda)->with('error', 'La comanda ya está cerrada.');
         }
 
         $validated = $request->validate([
@@ -164,26 +153,56 @@ class ComandaController extends Controller
             'customer_id' => ['nullable', 'required_if:payment_method,credito', 'exists:customers,id'],
         ]);
 
-        $comanda->load('items');
-        if ($comanda->items->isEmpty()) {
-            return redirect()->route('comandas.show', $comanda)->with('error', 'La comanda no tiene productos.');
+        $comanda->load(['items', 'payments']);
+        $pending = $comanda->items->where('collected', false);
+        if ($pending->isEmpty()) {
+            return redirect()->route('comandas.show', $comanda)->with('error', 'No hay items pendientes de cobro.');
         }
 
-        $cart = $comanda->items->map(fn ($item) => [
-            'product_id' => $item->combo_id ? "combo_{$item->combo_id}" : $item->product_id,
-            'name' => $item->product_name,
-            'price' => (float) $item->unit_price,
-            'quantity' => (int) $item->quantity,
-        ])->values()->all();
+        // Crédito no se mezcla con otros métodos de pago.
+        $hasCashPayments = $comanda->payments->where('method', '!=', 'credito')->isNotEmpty();
+        $hasCreditPayments = $comanda->payments->where('method', 'credito')->isNotEmpty();
+        if ($validated['payment_method'] === 'credito' && $hasCashPayments) {
+            return redirect()
+                ->route('comandas.show', $comanda)
+                ->with('error', 'Ya hay cobros en contado. No puede mezclar crédito con contado.');
+        }
+        if ($validated['payment_method'] !== 'credito' && $hasCreditPayments) {
+            return redirect()
+                ->route('comandas.show', $comanda)
+                ->with('error', 'Ya hay cobros a crédito. No puede mezclar contado con crédito.');
+        }
+
+        $amount = round($pending->sum(fn ($item) => (float) $item->subtotal), 2);
+
+        ComandaItem::whereIn('id', $pending->pluck('id'))->update(['collected' => true]);
+        $comanda->payments()->create([
+            'amount' => $amount,
+            'method' => $validated['payment_method'],
+            'customer_id' => $validated['payment_method'] === 'credito' ? $validated['customer_id'] : null,
+            'user_id' => $request->user()->id,
+        ]);
+
+        return redirect()
+            ->route('comandas.show', $comanda)
+            ->with('success', 'Cobro registrado (Bs ' . number_format($amount, 2, ',', '.') . ').');
+    }
+
+    public function close(Request $request, Comanda $comanda): RedirectResponse
+    {
+        if ($comanda->status === Comanda::STATUS_COBRADA) {
+            return redirect()->route('comandas.show', $comanda)->with('error', 'La comanda ya está cerrada.');
+        }
+
+        $comanda->load(['items', 'payments']);
+        if (! $comanda->isFullyCollected()) {
+            return redirect()
+                ->route('comandas.show', $comanda)
+                ->with('error', 'La comanda no está cobrada en su totalidad. Registra primero los cobros pendientes.');
+        }
 
         try {
-            $this->checkout->execute(
-                cart: $cart,
-                paymentMethod: $validated['payment_method'],
-                customerId: $validated['customer_id'] ?? null,
-                userId: $request->user()->id,
-                comandaId: $comanda->id,
-            );
+            $this->checkout->closeComanda($comanda, $request->user()->id);
         } catch (CheckoutException $e) {
             return redirect()
                 ->route('comandas.show', $comanda)
@@ -192,22 +211,22 @@ class ComandaController extends Controller
 
         return redirect()
             ->route('comandas.show', $comanda)
-            ->with('success', 'Comanda cobrada. Venta registrada.');
+            ->with('success', 'Comanda cerrada. Venta registrada.');
     }
 
     protected function baseRules(): array
     {
         return [
-            'order_type' => ['required', 'in:' . implode(',', [
+            'customer_name' => ['nullable', 'string', 'max:150'],
+            'cart' => ['required', 'array', 'min:1'],
+            'cart.*.product_id' => ['required'],
+            'cart.*.quantity' => ['required', 'integer', 'min:1'],
+            'cart.*.order_type' => ['required', 'in:' . implode(',', [
                 Comanda::ORDER_DELIVERY,
                 Comanda::ORDER_LOCAL,
                 Comanda::ORDER_PARA_LLEVAR,
             ])],
-            'customer_name' => ['nullable', 'string', 'max:150'],
-            'notes' => ['nullable', 'string', 'max:255'],
-            'cart' => ['required', 'array', 'min:1'],
-            'cart.*.product_id' => ['required'],
-            'cart.*.quantity' => ['required', 'integer', 'min:1'],
+            'cart.*.note' => ['nullable', 'string', 'max:255'],
         ];
     }
 
@@ -217,6 +236,8 @@ class ComandaController extends Controller
         foreach ($cart as $row) {
             $itemId = $row['product_id'];
             $qty = (int) $row['quantity'];
+            $orderType = $row['order_type'] ?? ComandaItem::ORDER_LOCAL;
+            $note = $row['note'] ?? null;
 
             if (str_starts_with((string) $itemId, 'combo_')) {
                 $combo = Combo::find((int) substr((string) $itemId, 6));
@@ -230,6 +251,8 @@ class ComandaController extends Controller
                     'name' => $combo->name,
                     'quantity' => $qty,
                     'unit_price' => $unitPrice,
+                    'order_type' => $orderType,
+                    'note' => $note,
                 ];
             } else {
                 $product = Product::find((int) $itemId);
@@ -243,24 +266,42 @@ class ComandaController extends Controller
                     'name' => $product->name,
                     'quantity' => $qty,
                     'unit_price' => $unitPrice,
+                    'order_type' => $orderType,
+                    'note' => $note,
                 ];
             }
         }
         return $items;
     }
 
+    /**
+     * Crea los items no cobrados y conserva (trabados) los ya cobrados.
+     * Los items cobrados no pueden editarse ni eliminarse; solo nuevos items
+     * (sin item_id) y los pendientes (collected=false) se reemplazan.
+     */
     protected function saveItems(Comanda $comanda, array $items): void
     {
+        $pendingIds = $comanda->items()
+            ->where('collected', false)
+            ->pluck('id');
+
+        if ($pendingIds->isNotEmpty()) {
+            ComandaItem::whereIn('id', $pendingIds)->delete();
+        }
+
         foreach ($items as $item) {
             $comanda->items()->create([
                 'product_id' => $item['product_id'],
                 'combo_id' => $item['combo_id'],
                 'product_name' => $item['name'],
+                'order_type' => $item['order_type'],
+                'note' => $item['note'],
                 'quantity' => $item['quantity'],
                 'unit_price' => $item['unit_price'],
                 'subtotal' => round($item['unit_price'] * $item['quantity'], 2),
                 'delivered_quantity' => 0,
                 'delivered_at' => null,
+                'collected' => false,
             ]);
         }
     }

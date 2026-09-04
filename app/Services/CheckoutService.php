@@ -73,6 +73,74 @@ class CheckoutService
         });
     }
 
+    /**
+     * Cierra una comanda ya cobrada por completo, generando la Sale definitiva.
+     * Las comanda_payments se agrupan por método (una SalePayment por método).
+     * Si todos los pagos son crédito, la venta queda 'pendiente' con cargo a crédito.
+     *
+     * @throws CheckoutException
+     */
+    public function closeComanda(Comanda $comanda, int $userId): Sale
+    {
+        $cart = $comanda->items->map(fn ($item) => [
+            'product_id' => $item->combo_id ? "combo_{$item->combo_id}" : $item->product_id,
+            'name' => $item->product_name,
+            'price' => (float) $item->unit_price,
+            'quantity' => (int) $item->quantity,
+        ])->values()->all();
+
+        if (empty($cart)) {
+            throw new CheckoutException('La comanda no tiene productos para cerrar.');
+        }
+
+        $total = array_reduce($cart, fn ($sum, $item) => $sum + ((float) $item['price'] * (int) $item['quantity']), 0);
+
+        $this->validateStock($cart);
+
+        $payments = $comanda->payments;
+        $isCredit = $payments->isNotEmpty() && $payments->every(fn ($p) => $p->method === 'credito');
+        $customer = null;
+
+        if ($isCredit) {
+            $creditPayment = $payments->first();
+            $customer = $this->resolveCustomer(true, $creditPayment->customer_id, $total);
+        }
+
+        return DB::transaction(function () use ($cart, $total, $isCredit, $customer, $userId, $payments, $comanda) {
+            $saleNumber = $this->nextSaleNumber();
+
+            $sale = Sale::create([
+                'sale_number' => $saleNumber,
+                'user_id' => $userId,
+                'customer_id' => $isCredit ? $customer->id : null,
+                'customer_name' => $isCredit ? $customer->name : null,
+                'total' => $total,
+                'status' => $isCredit ? 'pendiente' : 'completada',
+                'payment_method' => $isCredit ? 'credito' : null,
+            ]);
+
+            $this->createSaleItems($sale, $cart);
+
+            if ($isCredit) {
+                $this->createCreditCharge($sale, $customer, $total, $userId);
+            } else {
+                foreach ($payments->groupBy('method') as $method => $group) {
+                    $sale->payments()->create([
+                        'method' => $method,
+                        'amount' => round($group->sum('amount'), 2),
+                    ]);
+                }
+            }
+
+            $comanda->update([
+                'sale_id' => $sale->id,
+                'status' => Comanda::STATUS_COBRADA,
+            ]);
+
+            return $sale;
+        });
+    }
+
     protected function validateStock(array $cart): void
     {
         foreach ($cart as $item) {

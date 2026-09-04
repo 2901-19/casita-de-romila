@@ -85,6 +85,7 @@ Route::middleware('auth')->group(function () {
     Route::patch('comandas/{comanda}/entregar', [ComandaController::class, 'markDelivered'])->name('comandas.mark-delivered');
     Route::patch('comandas/{comanda}/items/{item}/entregar', [ComandaController::class, 'deliverItem'])->name('comandas.deliver-item');
     Route::post('comandas/{comanda}/cobrar', [ComandaController::class, 'collect'])->name('comandas.collect');
+    Route::post('comandas/{comanda}/cerrar', [ComandaController::class, 'close'])->name('comandas.close');
 
     Route::get('sales', [SalesController::class, 'index'])->name('sales.index');
     Route::get('sales/{sale}', [SalesController::class, 'show'])->name('sales.show');

@@ -202,7 +202,7 @@
                                     <div class="invalid-feedback d-block">{{ $message }}</div>
                                 @enderror
                                 @if($activeRate)
-                                    <p class="field-hint" style="font-size:0.72rem; margin-top:0.3rem;">
+                                    <p class="field-hint">
                                         <i class="bi bi-info-circle"></i> Tasa: Bs {{ number_format($activeRate->rate, 2, ',', '.') }} ({{ $activeRate->source_label }})
                                     </p>
                                 @endif

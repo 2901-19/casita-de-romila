@@ -13,6 +13,8 @@ document.addEventListener('alpine:init', function () {
             customerId: '',
             lastSaleTotal: 0,
             lastSalePaymentMethod: '',
+            processing: false,
+            checkoutError: '',
             _receiptTime: '',
             _debounceTimer: null,
 
@@ -143,8 +145,6 @@ document.addEventListener('alpine:init', function () {
             decreaseQty(id) {
                 if (this.cart[id].quantity > 1) {
                     this.cart[id].quantity--;
-                } else {
-                    this.removeFromCart(id);
                 }
             },
 
@@ -158,8 +158,11 @@ document.addEventListener('alpine:init', function () {
             },
 
             processCheckout: async function () {
-                let bootstrapModal = bootstrap.Modal.getInstance(document.getElementById('checkoutModal'));
-                bootstrapModal.hide();
+                if (this.processing) return;
+                this.processing = true;
+                this.checkoutError = '';
+
+                let checkoutModal = bootstrap.Modal.getInstance(document.getElementById('checkoutModal'));
 
                 try {
                     let response = await fetch('/pos', {
@@ -179,6 +182,7 @@ document.addEventListener('alpine:init', function () {
                     let data = await response.json();
 
                     if (response.ok) {
+                        checkoutModal.hide();
                         this.lastSaleTotal = this.subtotal;
                         this.lastSalePaymentMethod = this.paymentMethod;
                         this.clearCart();
@@ -192,10 +196,12 @@ document.addEventListener('alpine:init', function () {
                                 errorMsg = firstError[0];
                             }
                         }
-                        window.toast.fire({ icon: 'error', title: errorMsg });
+                        this.checkoutError = errorMsg;
                     }
                 } catch (err) {
-                    window.toast.fire({ icon: 'error', title: 'Error de conexión. Intenta de nuevo.' });
+                    this.checkoutError = 'Error de conexión. Intenta de nuevo.';
+                } finally {
+                    this.processing = false;
                 }
             },
         };

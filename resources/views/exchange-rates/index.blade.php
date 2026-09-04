@@ -56,7 +56,7 @@
 </div>
 
 <div class="card">
-    <div class="p-3 border-bottom" style="border-color: var(--border) !important;">
+    <div class="p-3 border-bottom">
         <h2 class="history-title">Historial de tasas</h2>
     </div>
     <div class="table-responsive">

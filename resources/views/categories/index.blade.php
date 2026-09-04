@@ -14,7 +14,7 @@
 
 
 <div class="card">
-    <div class="p-3 border-bottom d-flex flex-wrap gap-2 align-items-center" style="border-color: var(--border) !important;">
+    <div class="p-3 border-bottom d-flex flex-wrap gap-2 align-items-center">
 
         <div class="search-box">
             <i class="bi bi-search search-icon" aria-hidden="true"></i>
@@ -80,11 +80,11 @@
                     <tr>
                         <td colspan="3" class="text-center text-muted py-5">
                             @if(request()->filled('search') || (request('status') && request('status') !== 'all'))
-                                <i class="bi bi-search d-block" style="font-size:2rem;margin-bottom:0.5rem;opacity:0.4;"></i>
+                                <i class="bi bi-search empty-row-icon"></i>
                                 No se encontraron categorías
                                 <a class="btn btn-outline-brand btn-sm mt-2" href="{{ route('categories.index') }}">Limpiar filtros</a>
                             @else
-                                <i class="bi bi-tags d-block" style="font-size:2rem;margin-bottom:0.5rem;opacity:0.4;"></i>
+                                <i class="bi bi-tags empty-row-icon"></i>
                                 No hay categorías registradas
                             @endif
                         </td>
@@ -96,8 +96,8 @@
     </div>
 
     @if($categories->hasPages())
-    <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 border-top p-3" style="border-color: var(--border) !important;">
-        <span class="text-muted" style="font-size: 0.84rem;">
+    <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 border-top p-3">
+        <span class="text-muted small">
             Mostrando {{ $categories->firstItem() }}-{{ $categories->lastItem() }} de {{ $categories->total() }}
         </span>
         <nav aria-label="Paginación">

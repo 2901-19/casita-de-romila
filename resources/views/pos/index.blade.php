@@ -53,58 +53,47 @@
             </nav>
         </div>
 
-        {{-- Products table --}}
-        <div class="table-responsive flex-grow-1 overflow-auto">
-            <table class="table table-sm align-middle mb-0">
-                <thead>
-                    <tr>
-                        <th style="width:48px;"></th>
-                        <th>Producto</th>
-                        <th class="text-end">Precio</th>
-                        <th style="width:60px;"></th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr x-show="loading">
-                        <td colspan="4" class="text-center text-muted py-4">
-                            <div class="spinner-border spinner-border-sm me-2" role="status"></div>
-                            Cargando productos...
-                        </td>
-                    </tr>
-                    <template x-for="product in paginatedProducts" :key="product.id">
-                        <tr>
-                            <td>
-                                <template x-if="product.image">
-                                    <img :src="product.image" alt="" class="pos-thumb" loading="lazy">
-                                </template>
-                                <template x-if="!product.image">
-                                    <span class="pos-thumb pos-thumb-placeholder"><i class="bi bi-box"></i></span>
-                                </template>
-                            </td>
-                            <td>
+        {{-- Products grid --}}
+        <div class="pos-grid-wrap flex-grow-1 overflow-auto">
+            <div class="pos-grid">
+                <template x-if="loading">
+                    <div class="text-center text-muted py-4 col-span-3">
+                        <div class="spinner-border spinner-border-sm me-2" role="status"><span class="visually-hidden">Cargando</span></div>
+                        Cargando productos...
+                    </div>
+                </template>
+                <template x-for="product in paginatedProducts" :key="product.id">
+                    <button type="button" class="product-card"
+                            @click="addToCart(product)"
+                            :aria-label="'Agregar ' + product.name + ' al carrito'">
+                        <span class="product-card-thumb" aria-hidden="true">
+                            <template x-if="product.image">
+                                <img :src="product.image" alt="" class="pos-thumb" loading="lazy">
+                            </template>
+                            <template x-if="!product.image">
+                                <i class="bi bi-box"></i>
+                            </template>
+                        </span>
+                        <span class="product-card-info">
+                            <span class="product-card-name">
                                 <span x-text="product.name"></span>
                                 <template x-if="product.is_combo">
                                     <span class="badge-soft success ms-1">Combo</span>
                                 </template>
-                            </td>
-                            <td class="text-end">
+                            </span>
+                            <span class="product-card-price">
                                 Bs <span x-text="formatNumber(product.sale_price)"></span>
-                            </td>
-                            <td class="text-end">
-                                <button class="btn btn-sm btn-brand" @click="addToCart(product)" aria-label="Agregar">
-                                    <i class="bi bi-plus"></i>
-                                </button>
-                            </td>
-                        </tr>
-                    </template>
-                    <tr x-show="!loading && filteredProducts.length === 0">
-                        <td colspan="4" class="text-center text-muted py-4">
-                            <i class="bi bi-search d-block" style="font-size:1.5rem;opacity:0.4;"></i>
-                            No hay productos que mostrar
-                        </td>
-                    </tr>
-                </tbody>
-            </table>
+                            </span>
+                        </span>
+                    </button>
+                </template>
+                <template x-if="!loading && filteredProducts.length === 0">
+                    <div class="pos-empty col-span-3">
+                        <i class="bi bi-search"></i>
+                        <p>No hay productos que mostrar</p>
+                    </div>
+                </template>
+            </div>
         </div>
     </div>
 
@@ -128,7 +117,7 @@
                         </template>
                     </div>
                     <div class="cart-item-controls">
-                        <button class="qty-btn" @click="decreaseQty(id)" aria-label="Reducir cantidad">
+                        <button class="qty-btn" @click="decreaseQty(id)" :disabled="item.quantity <= 1" aria-label="Reducir cantidad">
                             <i class="bi bi-dash"></i>
                         </button>
                         <input type="number"
@@ -205,8 +194,8 @@
 
             <button class="btn btn-brand w-100"
                     @click="updateReceiptTime(); (checkoutModalInstance = checkoutModalInstance || new bootstrap.Modal(document.getElementById('checkoutModal'))).show()"
-                    :disabled="Object.keys(cart).length === 0 || (paymentMethod === 'credito' && !customerId)">
-                <i class="bi bi-credit-card me-1"></i> Cobrar
+                    :disabled="processing || Object.keys(cart).length === 0 || (paymentMethod === 'credito' && !customerId)">
+                <i class="bi bi-credit-card me-1"></i> <span x-show="processing">Procesando...</span><span x-show="!processing">Cobrar</span>
             </button>
         </div>
     </div>
@@ -226,6 +215,9 @@
                     </div>
                     <div class="modal-body">
                         <div class="checkout-receipt">
+                            <div x-show="checkoutError" x-cloak class="alert alert-danger py-2 px-3 mb-3" role="alert" aria-live="assertive">
+                                <i class="bi bi-exclamation-triangle me-1"></i><span x-text="checkoutError"></span>
+                            </div>
                             <div class="receipt-items">
                                 <div class="receipt-row receipt-row-head px-3 py-2">
                                     <span>Producto</span>
@@ -262,9 +254,10 @@
                         </div>
                     </div>
                     <div class="modal-footer">
-                        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
-                        <button type="submit" class="btn btn-brand">
-                            <i class="bi bi-check2-circle me-1"></i> Confirmar venta
+                        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal" :disabled="processing">Cancelar</button>
+                        <button type="submit" class="btn btn-brand" :disabled="processing">
+                            <span x-show="processing" class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                            <span x-text="processing ? 'Procesando...' : 'Confirmar venta'"></span>
                         </button>
                     </div>
                 </div>

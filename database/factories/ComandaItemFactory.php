@@ -18,10 +18,14 @@ class ComandaItemFactory extends Factory
             'product_id' => Product::factory(),
             'combo_id' => null,
             'product_name' => fake()->word(),
+            'order_type' => ComandaItem::ORDER_LOCAL,
+            'note' => null,
             'quantity' => 1,
             'unit_price' => fake()->randomFloat(2, 1, 100),
-            'subtotal' => 1,
-            'delivered' => false,
+            'subtotal' => fn (array $attrs) => round((float) ($attrs['unit_price'] ?? 1) * ($attrs['quantity'] ?? 1), 2),
+            'delivered_quantity' => 0,
+            'delivered_at' => null,
+            'collected' => false,
         ];
     }
 }

@@ -18,14 +18,14 @@
     </span>
     <span class="ms-auto d-flex flex-wrap gap-2">
         <button class="btn btn-outline-brand btn-sm" type="button" id="bulkActivate">Activar</button>
-        <button class="btn btn-sm" style="border-color:var(--border);color:var(--fg);" type="button" id="bulkDeactivate">Desactivar</button>
-        <button class="btn btn-sm" style="border-color:var(--danger);color:var(--danger);" type="button" id="bulkDelete">Eliminar</button>
+        <button class="btn btn-outline-secondary btn-sm" type="button" id="bulkDeactivate">Desactivar</button>
+        <button class="btn btn-outline-danger btn-sm" type="button" id="bulkDelete">Eliminar</button>
     </span>
 </div>
 @endcan
 
 <div class="card">
-    <div class="p-3 border-bottom d-flex flex-wrap gap-2 align-items-center" style="border-color: var(--border) !important;">
+    <div class="p-3 border-bottom d-flex flex-wrap gap-2 align-items-center">
 
         <div class="search-box">
             <i class="bi bi-search search-icon" aria-hidden="true"></i>
@@ -118,7 +118,7 @@
                                 <div>
                                     <span class="fw-semibold">{{ $product->name }}</span>
                                     @if($product->description)
-                                        <span class="d-block text-muted" style="font-size: 0.78rem; max-width: 250px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{{ $product->description }}</span>
+                                        <span class="d-block text-muted small text-truncate" style="max-width: 250px;">{{ $product->description }}</span>
                                     @endif
                                 </div>
                             </div>
@@ -187,11 +187,11 @@
                     <tr>
                         <td colspan="{{ auth()->user()->can('manage-products') ? 5 : 3 }}" class="text-center text-muted py-5">
                             @if(request()->filled('search') || (request('category') && request('category') !== 'all') || (request('status') && request('status') !== 'all'))
-                                <i class="bi bi-search d-block" style="font-size:2rem;margin-bottom:0.5rem;opacity:0.4;"></i>
+                                <i class="bi bi-search empty-row-icon"></i>
                                 No se encontraron productos
                                 <a class="btn btn-outline-brand btn-sm mt-2" href="{{ route('products.index') }}">Limpiar filtros</a>
                             @else
-                                <i class="bi bi-box-seam d-block" style="font-size:2rem;margin-bottom:0.5rem;opacity:0.4;"></i>
+                                <i class="bi bi-box-seam empty-row-icon"></i>
                                 No hay productos registrados
                             @endif
                         </td>
@@ -203,8 +203,8 @@
     </div>
 
     @if($products->hasPages())
-    <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 border-top p-3" style="border-color: var(--border) !important;">
-        <span class="text-muted" style="font-size: 0.84rem;">
+    <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 border-top p-3">
+        <span class="text-muted small">
             Mostrando {{ $products->firstItem() }}-{{ $products->lastItem() }} de {{ $products->total() }}
         </span>
         <nav aria-label="Paginación">

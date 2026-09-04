@@ -46,7 +46,7 @@
                 <div class="d-flex align-items-start justify-content-between">
                     <div class="min-w-0">
                         <p class="kpi-label">Tasa BCV</p>
-                        <h3 class="kpi-value" style="font-size:1.6rem;">
+                        <h3 class="kpi-value">
                             @if($latestRate)
                                 Bs {{ number_format($latestRate->rate, 2, ',', '.') }}
                             @else
@@ -116,7 +116,7 @@
             <div class="card-body">
                 <div class="d-flex justify-content-between align-items-start mb-3">
                     <div>
-                        <h2 class="card-title" style="font-size:1.1rem;">Ventas por Método de Pago</h2>
+                        <h2 class="card-title">Ventas por Método de Pago</h2>
                         <span class="card-sub">Hoy · total Bs {{ number_format($totalToday, 2, ',', '.') }}</span>
                     </div>
                 </div>
@@ -137,7 +137,7 @@
             <div class="card-body">
                 <div class="d-flex justify-content-between align-items-start mb-3">
                     <div>
-                        <h2 class="card-title" style="font-size:1.1rem;">Ventas de la Semana</h2>
+                        <h2 class="card-title">Ventas de la Semana</h2>
                         <span class="card-sub">Últimos 7 días</span>
                     </div>
                 </div>
@@ -157,7 +157,7 @@
 <section class="card mb-3">
     <div class="card-body">
         <div class="d-flex justify-content-between align-items-center mb-3">
-                <h2 class="card-title" style="font-size:1.1rem;">Ventas Recientes</h2>
+                <h2 class="card-title">Ventas Recientes</h2>
             <a href="{{ route('sales.index') }}" class="btn btn-outline-brand btn-sm">Ver todas</a>
         </div>
         <div class="table-responsive">
