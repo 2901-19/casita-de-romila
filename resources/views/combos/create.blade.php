@@ -107,11 +107,30 @@
                                                        id="salePriceBs"
                                                        min="0"
                                                        step="0.01"
-                                                       placeholder="0.00"
-                                                       readonly>
+                                                       placeholder="0.00">
                                             </div>
                                         </div>
                                     </div>
+                                    <div class="d-flex align-items-center gap-2 mb-1">
+                                        <div class="form-check form-switch mb-0">
+                                            <input class="form-check-input"
+                                                   type="checkbox"
+                                                   role="switch"
+                                                   id="roundBsToggle"
+                                                   {{ old('round_bs') ? 'checked' : '' }}>
+                                            <label class="form-check-label" for="roundBsToggle">Redondear Bs</label>
+                                        </div>
+                                        <select class="form-select form-select-sm" id="roundBsStep" style="width:auto;"
+                                                {{ old('round_bs') ? '' : 'disabled' }}>
+                                            @foreach([5, 10, 15, 20, 25, 50, 100] as $step)
+                                                <option value="{{ $step }}" {{ (int) old('round_bs', 5) === $step ? 'selected' : '' }}>a {{ $step }}</option>
+                                            @endforeach
+                                        </select>
+                                        <input type="hidden" name="round_bs" id="roundBsHidden" value="{{ old('round_bs') }}">
+                                    </div>
+                                    <p class="field-hint" id="roundBsHint" style="margin-bottom:0.25rem;">
+                                        Al activarlo, el precio Bs se redondea hacia arriba al múltiplo elegido.
+                                    </p>
                                     @if($rate)
                                         <p class="field-hint" style="font-size:0.72rem; margin-top:0.3rem;">
                                             <i class="bi bi-info-circle"></i> Tasa: Bs {{ number_format($rate, 2, ',', '.') }}
@@ -169,16 +188,48 @@
     var rate = {{ $rate }};
     var comboTotalUsd = 0;
 
+    var roundBsEl = document.getElementById('salePriceBs');
+    var roundToggleEl = document.getElementById('roundBsToggle');
+    var roundStepEl = document.getElementById('roundBsStep');
+    var roundHiddenEl = document.getElementById('roundBsHidden');
+
     function formatNumber(n) {
         return n.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     }
 
+    function roundEnabled() { return roundToggleEl.checked; }
+
+    function roundStepVal() { return parseInt(roundStepEl.value, 10) || 0; }
+
+    function computeBs(usd) {
+        var bs = (parseFloat(usd) || 0) * rate;
+        if (roundEnabled() && roundStepVal() > 0) {
+            bs = Math.ceil(bs / roundStepVal()) * roundStepVal();
+        }
+        return bs;
+    }
+
+    function updateRoundUi() {
+        roundStepEl.disabled = !roundEnabled();
+        roundHiddenEl.value = roundEnabled() ? roundStepEl.value : '';
+    }
+
     function updateBsPrice() {
         var usdInput = document.getElementById('salePriceUSD');
-        var bsInput = document.getElementById('salePriceBs');
         var usd = parseFloat(usdInput.value) || 0;
-        var bs = usd * rate;
-        bsInput.value = bs.toFixed(2);
+        roundBsEl.value = computeBs(usd).toFixed(2);
+        updateRoundUi();
+    }
+
+    function updateUsdFromBs(andRound) {
+        var bs = parseFloat(roundBsEl.value) || 0;
+        if (andRound && roundEnabled() && roundStepVal() > 0) {
+            bs = Math.ceil(bs / roundStepVal()) * roundStepVal();
+            roundBsEl.value = bs.toFixed(2);
+        }
+        var usd = rate > 0 ? Math.round((bs / rate) * 100) / 100 : 0;
+        document.getElementById('salePriceUSD').value = usd.toFixed(2);
+        updateRoundUi();
     }
 
     function updatePriceSummary() {
@@ -282,6 +333,16 @@
     });
 
     document.getElementById('salePriceUSD').addEventListener('input', updateBsPrice);
+    roundBsEl.addEventListener('input', function () { updateUsdFromBs(false); });
+    roundBsEl.addEventListener('change', function () { updateUsdFromBs(true); });
+    roundToggleEl.addEventListener('change', function () {
+        updateRoundUi();
+        updateBsPrice();
+    });
+    roundStepEl.addEventListener('change', function () {
+        updateRoundUi();
+        updateBsPrice();
+    });
 
     document.getElementById('applyComboPrice').addEventListener('click', function () {
         document.getElementById('salePriceUSD').value = comboTotalUsd.toFixed(2);

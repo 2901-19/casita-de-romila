@@ -26,7 +26,10 @@
         <div class="card">
             <div class="card-body py-2">
                 <p class="kpi-label mb-0">Creditos Pendientes</p>
-                <strong class="kpi-value text-danger">{{ $pendingCredit < 0 ? 'Bs ' . number_format(abs($pendingCredit), 2, ',', '.') : 'Bs 0,00' }}</strong>
+                <div class="d-flex flex-column">
+                    <strong class="kpi-value text-danger">$ {{ number_format(abs($pendingCreditUsd), 2, ',', '.') }}</strong>
+                    <small class="text-muted">≈ Bs {{ number_format(abs($pendingCreditBs), 2, ',', '.') }}</small>
+                </div>
             </div>
         </div>
     </div>

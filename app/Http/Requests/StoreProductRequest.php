@@ -22,6 +22,7 @@ class StoreProductRequest extends FormRequest
             'margin_percent' => ['nullable', 'numeric', 'min:0', 'max:999.99'],
             'sale_price' => ['required', 'numeric', 'min:0'],
             'price_override' => ['nullable', 'boolean'],
+            'round_bs' => ['nullable', 'integer', 'min:1'],
             'stock_min' => ['nullable', 'integer', 'min:0'],
             'stock_current' => ['nullable', 'integer', 'min:0'],
             'schedule' => ['required', 'in:manana,finde_noche,ambos'],

@@ -98,7 +98,7 @@
                         data-type="{{ $product->control_type }}"
                         data-schedule="{{ $product->schedule ?? 'ambos' }}"
                         data-image="{{ $product->image ? asset('storage/'.$product->image) : '' }}"
-                        data-price="{{ number_format($product->sale_price * $rate, 2, '.', '') }}"
+                        data-price="{{ number_format(\App\Support\Pricing::bs((float) $product->sale_price, $rate, $product->round_bs), 2, '.', '') }}"
                         data-stock="{{ $product->stock_current ?? 0 }}"
                         data-stock-min="{{ $product->stock_min ?? 0 }}">
                         @can('manage-products')
@@ -134,7 +134,7 @@
                             @endif
                         </td>
                         <td class="fw-semibold">
-                            Bs {{ number_format($product->sale_price * $rate, 2, ',', '.') }}
+                            Bs {{ number_format(\App\Support\Pricing::bs((float) $product->sale_price, $rate, $product->round_bs), 2, ',', '.') }}
                         </td>
                         @can('manage-products')
                         <td class="text-end">

@@ -163,4 +163,112 @@ class ComboTest extends TestCase
         $response = $this->get('/combos');
         $response->assertRedirect('/login');
     }
+
+    public function test_stores_combo_with_round_bs(): void
+    {
+        $user = User::factory()->gerente()->create();
+        $this->actingAs($user);
+        $product = Product::factory()->create();
+
+        $response = $this->post('/combos', [
+            'name' => 'Combo Redondeado',
+            'sale_price' => 8.50,
+            'is_active' => true,
+            'round_bs' => 5,
+            'products' => [
+                ['id' => $product->id, 'quantity' => 1],
+            ],
+        ]);
+
+        $response->assertSessionHas('success');
+        $this->assertDatabaseHas('combos', ['name' => 'Combo Redondeado', 'round_bs' => 5]);
+    }
+
+    public function test_validates_round_bs_min_one(): void
+    {
+        $user = User::factory()->gerente()->create();
+        $this->actingAs($user);
+        $product = Product::factory()->create();
+
+        $response = $this->post('/combos', [
+            'name' => 'Combo Inválido',
+            'sale_price' => 8.50,
+            'round_bs' => 0,
+            'products' => [
+                ['id' => $product->id, 'quantity' => 1],
+            ],
+        ]);
+
+        $response->assertSessionHasErrors('round_bs');
+    }
+
+    public function test_create_view_has_rounding_toggle_and_bidirectional_bs(): void
+    {
+        $user = User::factory()->gerente()->create();
+        $this->actingAs($user);
+
+        $response = $this->get('/combos/create');
+
+        $response->assertStatus(200);
+        $response->assertSee('id="roundBsToggle"', false);
+        $response->assertSee('id="roundBsStep"', false);
+        $response->assertSee('updateUsdFromBs', false);
+        $response->assertSee('id="salePriceBs"', false);
+    }
+
+    public function test_edit_view_keeps_rounding_toggle_and_bs_editable(): void
+    {
+        $user = User::factory()->gerente()->create();
+        $this->actingAs($user);
+        $combo = Combo::factory()->create(['round_bs' => 10, 'sale_price' => 8.50]);
+
+        $response = $this->get("/combos/{$combo->id}/edit");
+
+        $response->assertStatus(200);
+        $response->assertSee('id="salePriceBs"', false);
+        $response->assertSee('id="roundBsToggle"', false);
+        $response->assertSee('updateUsdFromBs', false);
+    }
+
+    public function test_updates_combo_round_bs(): void
+    {
+        $user = User::factory()->gerente()->create();
+        $this->actingAs($user);
+        $combo = Combo::factory()->create(['round_bs' => null]);
+        $product = Product::factory()->create();
+
+        $response = $this->put("/combos/{$combo->id}", [
+            'name' => 'Combo Actualizado',
+            'sale_price' => 9.00,
+            'is_active' => true,
+            'round_bs' => 20,
+            'products' => [
+                ['id' => $product->id, 'quantity' => 1],
+            ],
+        ]);
+
+        $response->assertSessionHas('success');
+        $this->assertDatabaseHas('combos', ['id' => $combo->id, 'round_bs' => 20]);
+    }
+
+    public function test_edit_allows_clearing_round_bs(): void
+    {
+        $user = User::factory()->gerente()->create();
+        $this->actingAs($user);
+        $combo = Combo::factory()->create(['round_bs' => 10]);
+        $product = Product::factory()->create();
+
+        $response = $this->put("/combos/{$combo->id}", [
+            'name' => $combo->name,
+            'sale_price' => $combo->sale_price,
+            'is_active' => true,
+            'round_bs' => '',
+            'products' => [
+                ['id' => $product->id, 'quantity' => 1],
+            ],
+        ]);
+
+        $response->assertSessionHas('success');
+        $this->assertDatabaseHas('combos', ['id' => $combo->id, 'round_bs' => null]);
+    }
 }

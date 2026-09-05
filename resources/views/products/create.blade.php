@@ -197,6 +197,26 @@
                                            placeholder="0.00"
                                            value="{{ old('sale_price_bs') }}">
                                 </div>
+                                <div class="d-flex align-items-center gap-2 mt-2 mb-1">
+                                    <div class="form-check form-switch mb-0">
+                                        <input class="form-check-input"
+                                               type="checkbox"
+                                               role="switch"
+                                               id="roundBsToggle"
+                                               {{ old('round_bs', $product->round_bs ?? null) ? 'checked' : '' }}>
+                                        <label class="form-check-label" for="roundBsToggle">Redondear Bs</label>
+                                    </div>
+                                    <select class="form-select form-select-sm" id="roundBsStep" style="width:auto;"
+                                            {{ old('round_bs', $product->round_bs ?? null) ? '' : 'disabled' }}>
+                                        @foreach([5, 10, 15, 20, 25, 50, 100] as $step)
+                                            <option value="{{ $step }}" {{ (int) old('round_bs', $product->round_bs ?? 5) === $step ? 'selected' : '' }}>a {{ $step }}</option>
+                                        @endforeach
+                                    </select>
+                                    <input type="hidden" name="round_bs" id="roundBsHidden" value="{{ old('round_bs', $product->round_bs ?? '') }}">
+                                </div>
+                                <p class="field-hint" id="roundBsHint" style="margin-bottom:0.25rem;">
+                                    Al activarlo, el precio Bs se redondea hacia arriba al múltiplo elegido.
+                                </p>
                                 @error('sale_price')
                                     <div class="invalid-feedback d-block">{{ $message }}</div>
                                 @enderror
@@ -248,6 +268,9 @@
     var saleUSDEl = document.getElementById('salePriceUSD');
     var saleUSDHidden = document.getElementById('salePriceUSDHidden');
     var saleBsEl = document.getElementById('salePriceBs');
+    var roundToggleEl = document.getElementById('roundBsToggle');
+    var roundStepEl = document.getElementById('roundBsStep');
+    var roundHiddenEl = document.getElementById('roundBsHidden');
     var activeRate = {{ $activeRate ? $activeRate->rate : '1' }};
     var isEdit = {{ isset($product) ? 'true' : 'false' }};
 
@@ -267,12 +290,26 @@
         return Math.round(((precioUSD - costo) / costo * 100) * 100) / 100;
     }
 
+    function roundEnabled() { return roundToggleEl.checked; }
+
+    function roundStepVal() { return parseInt(roundStepEl.value, 10) || 0; }
+
     function calcBs(precioUSD) {
-        return Math.round((precioUSD * activeRate) * 100) / 100;
+        var bs = (parseFloat(precioUSD) || 0) * activeRate;
+        if (roundEnabled() && roundStepVal() > 0) {
+            bs = Math.ceil(bs / roundStepVal()) * roundStepVal();
+        }
+        return Math.round(bs * 100) / 100;
     }
 
     function syncHidden() {
         saleUSDHidden.value = saleUSDEl.value;
+        roundHiddenEl.value = roundEnabled() ? roundStepEl.value : '';
+    }
+
+    function updateRoundUi() {
+        roundStepEl.disabled = !roundEnabled();
+        syncHidden();
     }
 
     function updateHint(costo, finalUSD) {
@@ -288,8 +325,18 @@
         var usd = parseFloat(saleUSDEl.value) || 0;
         var bs = parseFloat(saleBsEl.value) || 0;
 
-        if (editing === 'bs') {
+        if (editing === 'bsraw') {
             bs = parseFloat(saleBsEl.value) || 0;
+            usd = activeRate > 0 ? Math.round((bs / activeRate) * 100) / 100 : 0;
+            saleUSDEl.value = fmt(usd);
+            margen = calcMargin(costo, usd);
+            marginEl.value = fmt(margen);
+        } else if (editing === 'bs') {
+            bs = parseFloat(saleBsEl.value) || 0;
+            if (roundEnabled() && roundStepVal() > 0) {
+                bs = Math.ceil(bs / roundStepVal()) * roundStepVal();
+            }
+            saleBsEl.value = fmt(bs);
             usd = activeRate > 0 ? Math.round((bs / activeRate) * 100) / 100 : 0;
             saleUSDEl.value = fmt(usd);
             margen = calcMargin(costo, usd);
@@ -324,7 +371,16 @@
     costEl.addEventListener('input', function () { recalcAll('costo'); });
     marginEl.addEventListener('input', function () { recalcAll('margen'); });
     saleUSDEl.addEventListener('input', function () { recalcAll('usd'); });
-    saleBsEl.addEventListener('input', function () { recalcAll('bs'); });
+    saleBsEl.addEventListener('input', function () { recalcAll('bsraw'); });
+    saleBsEl.addEventListener('change', function () { recalcAll('bs'); });
+    roundToggleEl.addEventListener('change', function () {
+        updateRoundUi();
+        recalcAll('usd');
+    });
+    roundStepEl.addEventListener('change', function () {
+        updateRoundUi();
+        recalcAll('usd');
+    });
 
     var dropzone = document.getElementById('imgDropzone');
     var fileInput = document.getElementById('productImage');
@@ -357,6 +413,7 @@
     });
 
     recalcAll('init');
+    updateRoundUi();
 })();
 </script>
 @endpush

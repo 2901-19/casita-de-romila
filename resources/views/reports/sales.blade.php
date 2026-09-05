@@ -25,7 +25,7 @@
     <div class="col-6 col-md-3">
         <div class="card">
             <div class="card-body py-2">
-                <p class="kpi-label mb-0">Total USD</p>
+                <p class="kpi-label mb-0">≈ USD (tasa actual)</p>
                 <strong class="kpi-value">$ {{ number_format($totalUsd, 2, ',', '.') }}</strong>
             </div>
         </div>

@@ -31,11 +31,13 @@ class DashboardController extends Controller
         $productsActive = Product::where('is_active', true)->count();
 
         $stockLow = Product::where('is_active', true)
+            ->whereIn('control_type', ['inventariable', 'produccion'])
             ->whereColumn('stock_current', '<=', 'stock_min')
             ->where('stock_current', '>', 0)
             ->count();
 
         $stockOut = Product::where('is_active', true)
+            ->whereIn('control_type', ['inventariable', 'produccion'])
             ->where('stock_current', 0)
             ->count();
 

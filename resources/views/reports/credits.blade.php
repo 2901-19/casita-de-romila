@@ -17,11 +17,14 @@
     <div class="card-body py-2">
         <div class="row g-3 text-center">
             <div class="col-6">
-                <p class="kpi-label mb-0">Total Deuda Clientes</p>
-                <strong class="kpi-value text-danger">Bs {{ number_format(abs($totalDebt), 2, ',', '.') }}</strong>
+                <p class="kpi-label mb-0">Nueva deuda del periodo</p>
+                <div class="d-flex flex-column">
+                    <strong class="kpi-value text-danger">$ {{ number_format(abs($totalDebtUsd), 2, ',', '.') }}</strong>
+                    <small class="text-muted">≈ Bs {{ number_format(abs($totalDebtBs), 2, ',', '.') }} · tasa Bs {{ number_format($rate, 2, ',', '.') }}</small>
+                </div>
             </div>
             <div class="col-6">
-                <p class="kpi-label mb-0">Clientes</p>
+                <p class="kpi-label mb-0">Clientes con movimiento</p>
                 <strong class="kpi-value">{{ $customers->count() }}</strong>
             </div>
         </div>
@@ -33,29 +36,31 @@
         <div class="table-responsive">
             <table class="table align-middle">
                 <thead>
-                    <tr><th>Cliente</th><th>Telefono</th><th class="text-end">Saldo</th><th class="text-center">Estado</th><th>Ultimo movimiento</th></tr>
+                    <tr><th>Cliente</th><th>Telefono</th><th class="text-end">Cargos (USD)</th><th class="text-end">Pagos (USD)</th><th class="text-end">Neto periodo</th><th class="text-center">Estado</th></tr>
                 </thead>
                 <tbody>
                     @forelse($customers as $c)
                     <tr>
                         <td>{{ $c->name }}</td>
                         <td class="text-muted">{{ $c->phone ?? '—' }}</td>
-                        <td class="text-end num {{ $c->balance < 0 ? 'text-danger' : ($c->balance > 0 ? 'text-success' : '') }}">
-                            Bs {{ number_format($c->balance, 2, ',', '.') }}
+                        <td class="text-end num">$ {{ number_format($c->period_cargos, 2, ',', '.') }}</td>
+                        <td class="text-end num">$ {{ number_format($c->period_pagos, 2, ',', '.') }}</td>
+                        <td class="text-end num {{ $c->period_net_usd > 0 ? 'text-danger' : ($c->period_net_usd < 0 ? 'text-success' : '') }}">
+                            <span class="d-block">$ {{ number_format($c->period_net_usd, 2, ',', '.') }}</span>
+                            <small class="text-muted">≈ Bs {{ number_format($c->period_net_bs, 2, ',', '.') }}</small>
                         </td>
                         <td class="text-center">
-                            @if($c->balance < 0)
+                            @if($c->period_net_usd > 0)
                                 <span class="badge-soft danger">Debe</span>
-                            @elseif($c->balance > 0)
+                            @elseif($c->period_net_usd < 0)
                                 <span class="badge-soft success">A favor</span>
                             @else
                                 <span class="badge-soft muted">Al dia</span>
                             @endif
                         </td>
-                        <td class="text-muted">{{ $c->movements->last()?->created_at?->format('d/m/Y H:i') ?? '—' }}</td>
                     </tr>
                     @empty
-                    <tr><td colspan="5" class="text-center text-muted py-4">Sin datos</td></tr>
+                    <tr><td colspan="6" class="text-center text-muted py-4">Sin movimientos en el periodo</td></tr>
                     @endforelse
                 </tbody>
             </table>

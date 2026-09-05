@@ -184,7 +184,7 @@ document.addEventListener('alpine:init', function () {
             get products() {
                 return [
                     @foreach($products as $p)
-                        { id: {{ $p->id }}, name: {!! json_encode($p->name) !!}, sale_price: {{ number_format($p->sale_price * $rate, 2, '.', '') }}, category_id: {{ $p->category_id ?? 'null' }}, image: {!! json_encode($p->image ? asset('storage/'.$p->image) : '') !!}, is_demanda: {{ $p->control_type === 'demanda' ? 'true' : 'false' }} },
+                        { id: {{ $p->id }}, name: {!! json_encode($p->name) !!}, sale_price: {{ number_format(\App\Support\Pricing::bs((float) $p->sale_price, $rate, $p->round_bs), 2, '.', '') }}, category_id: {{ $p->category_id ?? 'null' }}, image: {!! json_encode($p->image ? asset('storage/'.$p->image) : '') !!}, is_demanda: {{ $p->control_type === 'demanda' ? 'true' : 'false' }} },
                     @endforeach
                 ];
             },
@@ -195,7 +195,7 @@ document.addEventListener('alpine:init', function () {
                         {
                             id: 'combo_{{ $combo->id }}',
                             name: {!! json_encode($combo->name) !!},
-                            sale_price: {{ number_format($combo->sale_price * $rate, 2, '.', '') }},
+                            sale_price: {{ number_format(\App\Support\Pricing::bs((float) $combo->sale_price, $rate, $combo->round_bs), 2, '.', '') }},
                             is_combo: true,
                             is_demanda: false,
                         },

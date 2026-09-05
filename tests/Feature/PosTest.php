@@ -366,4 +366,77 @@ class PosTest extends TestCase
 
         $response->assertStatus(422);
     }
+
+    public function test_pos_view_uses_open_checkout_modal_not_raw_instance(): void
+    {
+        $user = User::factory()->create();
+        $this->actingAs($user);
+
+        $response = $this->get('/pos');
+
+        $response->assertStatus(200);
+        $response->assertSee('openCheckoutModal', false);
+        $response->assertDontSee('checkoutModalInstance', false);
+    }
+
+    public function test_pos_products_apply_round_bs_ceiling(): void
+    {
+        $user = User::factory()->create();
+        $this->actingAs($user);
+        ExchangeRate::factory()->create(['rate' => 100]);
+
+        $product = Product::factory()->create([
+            'name' => 'Nacolid',
+            'is_active' => true,
+            'sale_price' => 10.17,
+            'round_bs' => 5,
+        ]);
+
+        $response = $this->getJson('/pos/products');
+
+        $response->assertStatus(200)
+            ->assertJsonPath('items.0.id', $product->id)
+            ->assertJsonPath('items.0.sale_price', 1020);
+    }
+
+    public function test_pos_combos_apply_round_bs_ceiling(): void
+    {
+        $user = User::factory()->create();
+        $this->actingAs($user);
+        ExchangeRate::factory()->create(['rate' => 100]);
+
+        $combo = \App\Models\Combo::factory()->create([
+            'name' => 'Combo Redondeado',
+            'is_active' => true,
+            'sale_price' => 8.32,
+            'round_bs' => 10,
+        ]);
+
+        $response = $this->getJson('/pos/products');
+
+        $response->assertStatus(200);
+        $items = collect($response->json('items'));
+        $row = $items->firstWhere('is_combo', true);
+        $this->assertNotNull($row);
+        $this->assertEquals(840.00, $row['sale_price']);
+    }
+
+    public function test_pos_products_keep_exact_bs_when_no_round_step(): void
+    {
+        $user = User::factory()->create();
+        $this->actingAs($user);
+        ExchangeRate::factory()->create(['rate' => 100]);
+
+        Product::factory()->create([
+            'name' => 'Sin Redondear',
+            'is_active' => true,
+            'sale_price' => 10.17,
+            'round_bs' => null,
+        ]);
+
+        $response = $this->getJson('/pos/products');
+
+        $response->assertStatus(200)
+            ->assertJsonPath('items.0.sale_price', 1017);
+    }
 }

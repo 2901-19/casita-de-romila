@@ -196,7 +196,7 @@
             </div>
 
             <button class="btn btn-brand w-100"
-                    @click="updateReceiptTime(); (checkoutModalInstance = checkoutModalInstance || new bootstrap.Modal(document.getElementById('checkoutModal'))).show()"
+                    @click="openCheckoutModal()"
                     :disabled="processing || Object.keys(cart).length === 0 || (paymentMethod === 'credito' && !customerId)">
                 <i class="bi bi-credit-card me-1"></i> <span x-show="processing">Procesando...</span><span x-show="!processing">Cobrar</span>
             </button>

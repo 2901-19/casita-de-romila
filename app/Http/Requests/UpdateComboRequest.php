@@ -16,6 +16,7 @@ class UpdateComboRequest extends FormRequest
         return [
             'name' => ['required', 'string', 'max:150'],
             'sale_price' => ['required', 'numeric', 'min:0'],
+            'round_bs' => ['nullable', 'integer', 'min:1'],
             'is_active' => ['required', 'boolean'],
             'products' => ['required', 'array', 'min:1'],
             'products.*.id' => ['required', 'exists:products,id'],

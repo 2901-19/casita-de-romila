@@ -68,7 +68,7 @@
                             <span class="text-muted">{{ $combo->products->count() }} producto(s)</span>
                         </td>
                         <td class="fw-semibold">
-                            Bs {{ number_format($combo->sale_price * $rate, 2, ',', '.') }}
+                            Bs {{ number_format(\App\Support\Pricing::bs((float) $combo->sale_price, $rate, $combo->round_bs), 2, ',', '.') }}
                         </td>
                         <td class="text-center">
                             @if($combo->is_active)

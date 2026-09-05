@@ -10,9 +10,11 @@ use App\Models\Customer;
 use App\Models\ExchangeRate;
 use App\Models\Product;
 use App\Services\CheckoutService;
+use App\Support\Pricing;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Log;
 use Illuminate\View\View;
 
 class PosController extends Controller
@@ -44,7 +46,7 @@ class PosController extends Controller
             ->map(fn (Product $p) => [
                 'id' => $p->id,
                 'name' => $p->name,
-                'sale_price' => round((float) $p->sale_price * $rate, 2),
+                'sale_price' => Pricing::bs((float) $p->sale_price, $rate, $p->round_bs),
                 'category_id' => $p->category_id,
                 'image' => $p->image ? asset('storage/'.$p->image) : '',
                 'is_combo' => false,
@@ -57,7 +59,7 @@ class PosController extends Controller
             ->map(fn (Combo $combo) => [
                 'id' => 'combo_'.$combo->id,
                 'name' => $combo->name,
-                'sale_price' => round((float) $combo->sale_price * $rate, 2),
+                'sale_price' => Pricing::bs((float) $combo->sale_price, $rate, $combo->round_bs),
                 'category_id' => null,
                 'image' => '',
                 'is_combo' => true,
@@ -108,6 +110,13 @@ class PosController extends Controller
             );
         } catch (CheckoutException $e) {
             return response()->json(['error' => $e->getMessage()], 422);
+        } catch (\Throwable $e) {
+            Log::error('Error interno al procesar venta POS', [
+                'exception' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+            ]);
+
+            return response()->json(['error' => 'Ocurrió un error interno al procesar la venta.'], 500);
         }
 
         return response()->json([

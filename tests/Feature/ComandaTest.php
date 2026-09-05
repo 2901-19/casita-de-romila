@@ -529,4 +529,67 @@ class ComandaTest extends TestCase
         $this->assertNotNull($s2);
         $this->assertNotEquals($s1->sale_number, $s2->sale_number);
     }
+
+    public function test_store_applies_round_bs_on_product_items(): void
+    {
+        $user = User::factory()->create();
+        $this->actingAs($user);
+        $product = Product::factory()->create([
+            'control_type' => 'inventariable',
+            'sale_price' => 10.17,
+            'stock_current' => 50,
+            'is_active' => true,
+            'round_bs' => 5,
+        ]);
+
+        $this->post('/comandas', $this->makeCart([[$product, 2]]));
+
+        $comanda = Comanda::first();
+        $this->assertEquals(2040.00, (float) $comanda->total);
+        $this->assertEquals(1020.00, (float) $comanda->items->first()->unit_price);
+    }
+
+    public function test_store_applies_round_bs_on_combo_items(): void
+    {
+        $user = User::factory()->create();
+        $this->actingAs($user);
+        $combo = \App\Models\Combo::factory()->create([
+            'sale_price' => 8.32,
+            'is_active' => true,
+            'round_bs' => 10,
+        ]);
+
+        $cart = [
+            'cart' => [[
+                'product_id' => 'combo_'.$combo->id,
+                'quantity' => 1,
+                'order_type' => ComandaItem::ORDER_LOCAL,
+                'note' => null,
+            ]],
+        ];
+
+        $this->post('/comandas', $cart);
+
+        $comanda = Comanda::first();
+        $this->assertEquals(840.00, (float) $comanda->total);
+        $this->assertEquals(840.00, (float) $comanda->items->first()->unit_price);
+    }
+
+    public function test_create_page_rounds_catalog_prices(): void
+    {
+        $user = User::factory()->create();
+        $this->actingAs($user);
+        Product::factory()->create([
+            'name' => 'Nacolid',
+            'control_type' => 'inventariable',
+            'sale_price' => 10.17,
+            'is_active' => true,
+            'round_bs' => 5,
+        ]);
+
+        $response = $this->get('/comandas/create');
+
+        $response->assertStatus(200);
+        $response->assertSee('1020.00', false);
+    }
 }

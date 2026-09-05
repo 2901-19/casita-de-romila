@@ -6,46 +6,23 @@
 <div class="d-flex justify-content-between align-items-center mb-3">
     <h2 class="card-title mb-0">Productos de Lento Movimiento</h2>
     <div class="d-flex gap-2">
-        <a href="{{ route('reports.slow-movers-export', ['from' => $from, 'to' => $to, 'days' => $days]) }}" class="btn btn-outline-success btn-sm"><i class="bi bi-download me-1"></i> CSV</a>
+        <a href="{{ route('reports.slow-movers-export', ['from' => $from, 'to' => $to]) }}" class="btn btn-outline-success btn-sm"><i class="bi bi-download me-1"></i> CSV</a>
         <a href="{{ route('reports.index') }}" class="btn btn-outline-secondary btn-sm"><i class="bi bi-arrow-left me-1"></i> Volver</a>
     </div>
 </div>
 
-@include('reports._date-filter', [
-    'from' => $from,
-    'to' => $to,
-    'route' => 'reports.slow-movers',
-    'preserve' => ['days' => $days],
-])
-
-<div class="row g-2 mb-3">
-    <div class="col-6 col-sm-3">
-        <form method="GET" action="{{ route('reports.slow-movers') }}" class="d-flex gap-2 align-items-end">
-            <input type="hidden" name="from" value="{{ $from }}">
-            <input type="hidden" name="to" value="{{ $to }}">
-            <div>
-                <label class="form-label small text-muted mb-1">Sin venta hace</label>
-                <select name="days" class="form-select">
-                    @foreach([7, 14, 30, 60, 90] as $d)
-                        <option value="{{ $d }}" {{ $days == $d ? 'selected' : '' }}>{{ $d }} dias</option>
-                    @endforeach
-                </select>
-            </div>
-            <button type="submit" class="btn btn-outline-brand">Aplicar</button>
-        </form>
-    </div>
-</div>
+@include('reports._date-filter', ['from' => $from, 'to' => $to, 'route' => 'reports.slow-movers'])
 
 <div class="card mb-3">
     <div class="card-body py-2">
         <div class="row g-3 text-center">
             <div class="col-6">
-                <p class="kpi-label mb-0">Productos sin movimiento</p>
+                <p class="kpi-label mb-0">Sin ventas en el periodo</p>
                 <strong class="kpi-value text-warning">{{ $products->count() }}</strong>
             </div>
             <div class="col-6">
-                <p class="kpi-label mb-0">Umbral</p>
-                <strong class="kpi-value">{{ $days }} dias</strong>
+                <p class="kpi-label mb-0">Periodo</p>
+                <strong class="kpi-value small">{{ \Carbon\Carbon::parse($from)->format('d M Y') }} → {{ \Carbon\Carbon::parse($to)->format('d M Y') }}</strong>
             </div>
         </div>
     </div>
@@ -74,7 +51,7 @@
                         <td class="text-end num {{ $p->stock_current <= $p->stock_min ? 'text-warning' : '' }}">{{ $p->stock_current }}</td>
                     </tr>
                     @empty
-                    <tr><td colspan="5" class="text-center text-muted py-4">Todos los productos tienen movimiento reciente</td></tr>
+                    <tr><td colspan="5" class="text-center text-muted py-4">Todos los productos tuvieron ventas en el periodo</td></tr>
                     @endforelse
                 </tbody>
             </table>

@@ -58,7 +58,7 @@
                     @forelse($comparison as $p)
                     <tr>
                         <td>{{ $p->name }}</td>
-                        <td class="text-muted">{{ $p->category->name ?? '—' }}</td>
+                        <td class="text-muted">{{ $p->category_name }}</td>
                         <td class="text-end num">{{ $p->produced }}</td>
                         <td class="text-end num">{{ $p->sold }}</td>
                         <td class="text-end num {{ $p->wasted > 0 ? 'text-danger' : '' }}">{{ $p->wasted }}</td>

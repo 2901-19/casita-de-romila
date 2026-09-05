@@ -283,4 +283,97 @@ class ProductTest extends TestCase
 
         $response->assertStatus(422);
     }
+
+    public function test_stores_product_with_round_bs(): void
+    {
+        $user = User::factory()->gerente()->create();
+        $this->actingAs($user);
+        $category = Category::factory()->create();
+
+        $response = $this->post('/products', [
+            'name' => 'Nacolid',
+            'category_id' => $category->id,
+            'control_type' => 'inventariable',
+            'cost_price' => 1.00,
+            'margin_percent' => 50,
+            'sale_price' => 2.00,
+            'stock_min' => 5,
+            'stock_current' => 10,
+            'schedule' => 'ambos',
+            'round_bs' => 5,
+        ]);
+
+        $response->assertSessionHas('success');
+        $this->assertDatabaseHas('products', ['name' => 'Nacolid', 'round_bs' => 5]);
+    }
+
+    public function test_validates_round_bs_min_one(): void
+    {
+        $user = User::factory()->gerente()->create();
+        $this->actingAs($user);
+
+        $response = $this->post('/products', [
+            'name' => 'Producto Invalido',
+            'control_type' => 'inventariable',
+            'cost_price' => 1.00,
+            'margin_percent' => 50,
+            'sale_price' => 2.00,
+            'stock_min' => 5,
+            'stock_current' => 10,
+            'schedule' => 'ambos',
+            'round_bs' => 0,
+        ]);
+
+        $response->assertSessionHasErrors('round_bs');
+    }
+
+    public function test_allows_clearing_round_bs_on_update(): void
+    {
+        $user = User::factory()->gerente()->create();
+        $this->actingAs($user);
+        $product = Product::factory()->create(['round_bs' => 10]);
+
+        $response = $this->put("/products/{$product->id}", [
+            'name' => $product->name,
+            'category_id' => $product->category_id,
+            'control_type' => $product->control_type,
+            'cost_price' => $product->cost_price,
+            'margin_percent' => $product->margin_percent,
+            'sale_price' => $product->sale_price,
+            'stock_min' => $product->stock_min,
+            'stock_current' => $product->stock_current,
+            'schedule' => $product->schedule,
+            'round_bs' => '',
+            'is_active' => true,
+        ]);
+
+        $response->assertSessionHas('success');
+        $this->assertDatabaseHas('products', ['id' => $product->id, 'round_bs' => null]);
+    }
+
+    public function test_create_view_has_rounding_toggle_and_bs_input(): void
+    {
+        $user = User::factory()->gerente()->create();
+        $this->actingAs($user);
+
+        $response = $this->get('/products/create');
+
+        $response->assertStatus(200);
+        $response->assertSee('id="roundBsToggle"', false);
+        $response->assertSee('id="roundBsStep"', false);
+        $response->assertSee('id="salePriceBs"', false);
+    }
+
+    public function test_edit_view_shows_rounding_toggle_for_existing_product(): void
+    {
+        $user = User::factory()->gerente()->create();
+        $this->actingAs($user);
+        $product = Product::factory()->create(['round_bs' => 25]);
+
+        $response = $this->get("/products/{$product->id}/edit");
+
+        $response->assertStatus(200);
+        $response->assertSee('id="roundBsToggle"', false);
+        $response->assertSee('id="salePriceBs"', false);
+    }
 }

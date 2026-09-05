@@ -145,4 +145,21 @@ class DashboardTest extends TestCase
         $response->assertSee('Nueva Venta');
         $response->assertSee(route('pos.index'));
     }
+
+    public function test_stock_kpis_exclude_demanda_products(): void
+    {
+        $user = User::factory()->create();
+        $this->actingAs($user);
+
+        Product::factory()->create(['control_type' => 'inventariable', 'is_active' => true, 'stock_current' => 0]);
+        Product::factory()->create(['control_type' => 'produccion', 'is_active' => true, 'stock_current' => 1, 'stock_min' => 5]);
+        Product::factory()->create(['control_type' => 'demanda', 'is_active' => true, 'stock_current' => 0]);
+        Product::factory()->create(['control_type' => 'demanda', 'is_active' => true, 'stock_current' => 1, 'stock_min' => 5]);
+
+        $response = $this->get('/dashboard');
+
+        $response->assertStatus(200);
+        $response->assertViewHas('stockOut', fn ($s) => $s == 1);
+        $response->assertViewHas('stockLow', fn ($s) => $s == 1);
+    }
 }

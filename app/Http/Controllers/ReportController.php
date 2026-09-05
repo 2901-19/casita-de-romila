@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Combo;
+use App\Models\CreditMovement;
 use App\Models\Customer;
 use App\Models\ExchangeRate;
 use App\Models\Merma;
@@ -26,6 +28,30 @@ class ReportController extends Controller
         ];
     }
 
+    protected function currentRate(): float
+    {
+        return (float) (ExchangeRate::latest()->first()?->rate ?? 1);
+    }
+
+    protected function isPgsql(): bool
+    {
+        return DB::connection()->getDriverName() === 'pgsql';
+    }
+
+    protected function hourOfDayExpr(string $col): string
+    {
+        return $this->isPgsql()
+            ? "EXTRACT(HOUR FROM {$col})"
+            : "CAST(strftime('%H', {$col}) AS INTEGER)";
+    }
+
+    protected function dayOfWeekExpr(string $col): string
+    {
+        return $this->isPgsql()
+            ? "EXTRACT(DOW FROM {$col})"
+            : "CAST(strftime('%w', {$col}) AS INTEGER)";
+    }
+
     public function index(): View
     {
         [$from, $to] = $this->dateRange(new Request);
@@ -38,12 +64,14 @@ class ReportController extends Controller
         $activeProducts = Product::active()->count();
 
         $pendingCredit = Customer::where('balance', '<', 0)->sum('balance');
+        $pendingCreditUsd = (float) $pendingCredit;
+        $pendingCreditBs = round($pendingCreditUsd * $this->currentRate(), 2);
 
         $totalWaste = Merma::whereDate('created_at', '>=', $from)
             ->whereDate('created_at', '<=', $to)
             ->sum('quantity');
 
-        return view('reports.index', compact('monthRevenue', 'activeProducts', 'pendingCredit', 'totalWaste', 'from', 'to'));
+        return view('reports.index', compact('monthRevenue', 'activeProducts', 'pendingCreditUsd', 'pendingCreditBs', 'totalWaste', 'from', 'to'));
     }
 
     // ─── Ventas ─────────────────────────────────────────────
@@ -125,31 +153,9 @@ class ReportController extends Controller
     public function products(Request $request): View
     {
         [$from, $to] = $this->dateRange($request);
+        $rate = $this->currentRate();
 
-        $saleStats = SaleItem::whereHas('sale', fn ($q) => $q->where('status', 'completada')
-            ->whereDate('created_at', '>=', $from)
-            ->whereDate('created_at', '<=', $to))
-            ->join('products', 'sale_items.product_id', '=', 'products.id')
-            ->selectRaw('sale_items.product_id,
-                COALESCE(SUM(sale_items.quantity), 0) as total_sold,
-                COALESCE(SUM(sale_items.subtotal), 0) as total_revenue,
-                COALESCE(SUM(sale_items.quantity * products.cost_price), 0) as total_cost')
-            ->groupBy('sale_items.product_id')
-            ->get()
-            ->keyBy('product_id');
-
-        $products = Product::with(['category'])
-            ->orderBy('name')
-            ->get()
-            ->map(function ($p) use ($saleStats) {
-                $stat = $saleStats->get($p->id);
-                $p->total_sold = $stat->total_sold ?? 0;
-                $p->total_revenue = $stat->total_revenue ?? 0;
-                $p->total_cost = $stat->total_cost ?? 0;
-                $p->profit = round($p->total_revenue - $p->total_cost, 2);
-                return $p;
-            })
-            ->filter(fn ($p) => $p->total_sold > 0 || $p->stock_current > 0);
+        $products = $this->salesStats($from, $to, $rate);
 
         return view('reports.products', compact('products', 'from', 'to'));
     }
@@ -157,40 +163,18 @@ class ReportController extends Controller
     public function productsExport(Request $request)
     {
         [$from, $to] = $this->dateRange($request);
+        $rate = $this->currentRate();
 
-        $saleStats = SaleItem::whereHas('sale', fn ($q) => $q->where('status', 'completada')
-            ->whereDate('created_at', '>=', $from)
-            ->whereDate('created_at', '<=', $to))
-            ->join('products', 'sale_items.product_id', '=', 'products.id')
-            ->selectRaw('sale_items.product_id,
-                COALESCE(SUM(sale_items.quantity), 0) as total_sold,
-                COALESCE(SUM(sale_items.subtotal), 0) as total_revenue,
-                COALESCE(SUM(sale_items.quantity * products.cost_price), 0) as total_cost')
-            ->groupBy('sale_items.product_id')
-            ->get()
-            ->keyBy('product_id');
-
-        $products = Product::with(['category'])
-            ->orderBy('name')
-            ->get()
-            ->map(function ($p) use ($saleStats) {
-                $stat = $saleStats->get($p->id);
-                $p->total_sold = $stat->total_sold ?? 0;
-                $p->total_revenue = $stat->total_revenue ?? 0;
-                $p->total_cost = $stat->total_cost ?? 0;
-                $p->profit = round($p->total_revenue - $p->total_cost, 2);
-                return $p;
-            })
-            ->filter(fn ($p) => $p->total_sold > 0 || $p->stock_current > 0);
+        $products = $this->salesStats($from, $to, $rate);
 
         $rows = $products->map(fn ($p) => [
             $p->name,
-            $p->category->name ?? '—',
+            $p->category_name,
             $p->control_type,
             $p->total_sold,
-            number_format($p->total_revenue, 2, ',', '.'),
+            number_format($p->revenue, 2, ',', '.'),
             number_format($p->profit, 2, ',', '.'),
-            $p->stock_current,
+            $p->stock_current ?? '—',
         ]);
 
         return $this->exportCsv(
@@ -200,44 +184,137 @@ class ReportController extends Controller
         );
     }
 
+    protected function salesStats(string $from, string $to, float $rate)
+    {
+        $productStats = SaleItem::whereHas('sale', fn ($q) => $q->where('status', 'completada')
+            ->whereDate('created_at', '>=', $from)
+            ->whereDate('created_at', '<=', $to))
+            ->whereNotNull('product_id')
+            ->join('products', 'sale_items.product_id', '=', 'products.id')
+            ->selectRaw('sale_items.product_id,
+                COALESCE(SUM(sale_items.quantity), 0) as total_sold,
+                COALESCE(SUM(sale_items.subtotal), 0) as revenue,
+                COALESCE(SUM(sale_items.quantity * products.cost_price), 0) as cost_usd')
+            ->groupBy('sale_items.product_id')
+            ->get()
+            ->keyBy('product_id');
+
+        $comboStats = SaleItem::whereHas('sale', fn ($q) => $q->where('status', 'completada')
+            ->whereDate('created_at', '>=', $from)
+            ->whereDate('created_at', '<=', $to))
+            ->whereNotNull('combo_id')
+            ->join('combos', 'sale_items.combo_id', '=', 'combos.id')
+            ->selectRaw('sale_items.combo_id,
+                COALESCE(SUM(sale_items.quantity), 0) as total_sold,
+                COALESCE(SUM(sale_items.subtotal), 0) as revenue,
+                COALESCE(SUM(sale_items.quantity * combos.sale_price), 0) as cost_usd')
+            ->groupBy('sale_items.combo_id')
+            ->get()
+            ->keyBy('combo_id');
+
+        $items = collect();
+
+        Product::with('category')->orderBy('name')->get()->each(function ($p) use ($productStats, $rate, $items) {
+            $stat = $productStats->get($p->id);
+            $items->push((object) [
+                'name' => $p->name,
+                'category_name' => $p->category?->name ?? '—',
+                'control_type' => $p->control_type,
+                'total_sold' => (int) ($stat->total_sold ?? 0),
+                'revenue' => (float) ($stat->revenue ?? 0),
+                'cost' => round((float) ($stat->cost_usd ?? 0) * $rate, 2),
+                'stock_current' => $p->stock_current,
+                'stock_min' => $p->stock_min,
+            ]);
+        });
+
+        Combo::orderBy('name')->get()->each(function ($combo) use ($comboStats, $rate, $items) {
+            $stat = $comboStats->get($combo->id);
+            $items->push((object) [
+                'name' => $combo->name,
+                'category_name' => '—',
+                'control_type' => 'combo',
+                'total_sold' => (int) ($stat->total_sold ?? 0),
+                'revenue' => (float) ($stat->revenue ?? 0),
+                'cost' => round((float) ($stat->cost_usd ?? 0) * $rate, 2),
+                'stock_current' => null,
+                'stock_min' => null,
+            ]);
+        });
+
+        $items->each(function ($item) {
+            $item->profit = round($item->revenue - $item->cost, 2);
+            $item->margin_pct = $item->revenue > 0 ? round(($item->profit / $item->revenue) * 100, 1) : 0;
+        });
+
+        return $items->filter(fn ($p) => $p->total_sold > 0 || ($p->stock_current ?? 0) > 0)
+            ->sortBy('name')
+            ->values();
+    }
+
     // ─── Creditos ───────────────────────────────────────────
 
     public function credits(Request $request): View
     {
         [$from, $to] = $this->dateRange($request);
+        $rate = $this->currentRate();
 
-        $customers = Customer::with(['movements' => fn ($q) => $q->whereDate('created_at', '>=', $from)->whereDate('created_at', '<=', $to)])
-            ->whereHas('movements', fn ($q) => $q->whereDate('created_at', '>=', $from)->whereDate('created_at', '<=', $to))
-            ->orderBy('balance')
-            ->get();
+        $customers = $this->creditStats($from, $to, $rate);
 
-        $totalDebt = $customers->sum('balance');
+        $totalDebtUsd = round($customers->sum(fn ($c) => max(0, $c->period_net_usd)), 2);
+        $totalDebtBs = round($totalDebtUsd * $rate, 2);
 
-        return view('reports.credits', compact('customers', 'totalDebt', 'from', 'to'));
+        return view('reports.credits', compact('customers', 'totalDebtUsd', 'totalDebtBs', 'rate', 'from', 'to'));
     }
 
     public function creditsExport(Request $request)
     {
         [$from, $to] = $this->dateRange($request);
+        $rate = $this->currentRate();
 
-        $customers = Customer::with(['movements' => fn ($q) => $q->whereDate('created_at', '>=', $from)->whereDate('created_at', '<=', $to)])
-            ->whereHas('movements', fn ($q) => $q->whereDate('created_at', '>=', $from)->whereDate('created_at', '<=', $to))
-            ->orderBy('balance')
-            ->get();
+        $customers = $this->creditStats($from, $to, $rate);
 
         $rows = $customers->map(fn ($c) => [
             $c->name,
             $c->phone ?? '—',
-            number_format($c->balance, 2, ',', '.'),
-            $c->balance < 0 ? 'Debe' : ($c->balance > 0 ? 'A favor' : 'Al dia'),
-            $c->movements->last()?->created_at?->format('d/m/Y H:i') ?? '—',
+            number_format($c->period_cargos, 2, ',', '.'),
+            number_format($c->period_pagos, 2, ',', '.'),
+            number_format($c->period_net_usd, 2, ',', '.'),
+            number_format($c->period_net_bs, 2, ',', '.'),
+            $c->period_net_usd > 0 ? 'Debe' : ($c->period_net_usd < 0 ? 'A favor' : 'Al dia'),
         ]);
 
         return $this->exportCsv(
-            ['Cliente', 'Telefono', 'Saldo (Bs)', 'Estado', 'Ultimo movimiento'],
+            ['Cliente', 'Telefono', 'Cargos (USD)', 'Pagos (USD)', 'Neto periodo (USD)', 'Neto periodo (Bs)', 'Estado'],
             $rows,
             "creditos_{$from}_{$to}.csv"
         );
+    }
+
+    protected function creditStats(string $from, string $to, float $rate)
+    {
+        $stats = CreditMovement::whereDate('created_at', '>=', $from)
+            ->whereDate('created_at', '<=', $to)
+            ->selectRaw("customer_id,
+                COALESCE(SUM(CASE WHEN type = 'cargo' THEN amount ELSE 0 END), 0) as cargos,
+                COALESCE(SUM(CASE WHEN type IN ('pago', 'abono') THEN amount ELSE 0 END), 0) as pagos")
+            ->groupBy('customer_id')
+            ->get()
+            ->keyBy('customer_id');
+
+        return Customer::with(['movements' => fn ($q) => $q->whereDate('created_at', '>=', $from)->whereDate('created_at', '<=', $to)])
+            ->whereIn('id', $stats->keys())
+            ->orderBy('name')
+            ->get()
+            ->map(function ($c) use ($stats, $rate) {
+                $st = $stats->get($c->id);
+                $c->period_cargos = (float) ($st->cargos ?? 0);
+                $c->period_pagos = (float) ($st->pagos ?? 0);
+                $c->period_net_usd = round($c->period_cargos - $c->period_pagos, 2);
+                $c->period_net_bs = round($c->period_net_usd * $rate, 2);
+                return $c;
+            })
+            ->values();
     }
 
     // ─── Dias con mas ventas ────────────────────────────────
@@ -330,8 +407,8 @@ class ReportController extends Controller
         $waste = Merma::with('product')
             ->whereDate('created_at', '>=', $from)
             ->whereDate('created_at', '<=', $to)
-            ->selectRaw('product_id, SUM(quantity) as total_wasted, MAX(created_at) as last_date')
-            ->groupBy('product_id')
+            ->selectRaw('product_id, reason, SUM(quantity) as total_wasted, MAX(created_at) as last_date')
+            ->groupBy('product_id', 'reason')
             ->orderByDesc('total_wasted')
             ->get();
 
@@ -341,7 +418,7 @@ class ReportController extends Controller
             $w->product?->name ?? '—',
             $w->total_wasted,
             $reasonLabels[$w->reason] ?? ucfirst($w->reason ?? ''),
-            $w->last_date?->format('d/m/Y H:i') ?? '—',
+            $w->last_date ? \Carbon\Carbon::parse($w->last_date)->format('d/m/Y H:i') : '—',
         ]);
 
         return $this->exportCsv(
@@ -356,27 +433,15 @@ class ReportController extends Controller
     public function profitMargin(Request $request): View
     {
         [$from, $to] = $this->dateRange($request);
+        $rate = $this->currentRate();
 
-        $saleStats = SaleItem::whereHas('sale', fn ($q) => $q->where('status', 'completada')
-            ->whereDate('created_at', '>=', $from)
-            ->whereDate('created_at', '<=', $to))
-            ->join('products', 'sale_items.product_id', '=', 'products.id')
-            ->selectRaw('sale_items.product_id,
-                SUM(sale_items.quantity) as sold,
-                SUM(sale_items.subtotal) as revenue,
-                SUM(sale_items.quantity * products.cost_price) as cost')
-            ->groupBy('sale_items.product_id')
-            ->get();
+        $products = $this->salesStats($from, $to, $rate)
+            ->filter(fn ($p) => $p->total_sold > 0)
+            ->sortByDesc('profit')
+            ->values();
 
-        $products = $saleStats->map(function ($s) {
-            $s->profit = round($s->revenue - $s->cost, 2);
-            $s->margin_pct = $s->revenue > 0 ? round(($s->profit / $s->revenue) * 100, 1) : 0;
-            $s->product = Product::with('category')->find($s->product_id);
-            return $s;
-        })->sortByDesc('profit')->values();
-
-        $totalRevenue = $products->sum('revenue');
-        $totalCost = $products->sum('cost');
+        $totalRevenue = round($products->sum('revenue'), 2);
+        $totalCost = round($products->sum('cost'), 2);
         $totalProfit = round($totalRevenue - $totalCost, 2);
 
         return view('reports.profit-margin', compact('products', 'totalRevenue', 'totalCost', 'totalProfit', 'from', 'to'));
@@ -385,32 +450,22 @@ class ReportController extends Controller
     public function profitMarginExport(Request $request)
     {
         [$from, $to] = $this->dateRange($request);
+        $rate = $this->currentRate();
 
-        $saleStats = SaleItem::whereHas('sale', fn ($q) => $q->where('status', 'completada')
-            ->whereDate('created_at', '>=', $from)
-            ->whereDate('created_at', '<=', $to))
-            ->join('products', 'sale_items.product_id', '=', 'products.id')
-            ->selectRaw('sale_items.product_id,
-                SUM(sale_items.quantity) as sold,
-                SUM(sale_items.subtotal) as revenue,
-                SUM(sale_items.quantity * products.cost_price) as cost')
-            ->groupBy('sale_items.product_id')
-            ->get();
+        $products = $this->salesStats($from, $to, $rate)
+            ->filter(fn ($p) => $p->total_sold > 0)
+            ->sortByDesc('profit')
+            ->values();
 
-        $rows = $saleStats->map(function ($s) {
-            $profit = round($s->revenue - $s->cost, 2);
-            $margin = $s->revenue > 0 ? round(($profit / $s->revenue) * 100, 1) : 0;
-            $product = Product::with('category')->find($s->product_id);
-            return [
-                $product?->name ?? '—',
-                $product?->category?->name ?? '—',
-                $s->sold,
-                number_format($s->revenue, 2, ',', '.'),
-                number_format($s->cost, 2, ',', '.'),
-                number_format($profit, 2, ',', '.'),
-                "{$margin}%",
-            ];
-        });
+        $rows = $products->map(fn ($p) => [
+            $p->name,
+            $p->category_name,
+            $p->total_sold,
+            number_format($p->revenue, 2, ',', '.'),
+            number_format($p->cost, 2, ',', '.'),
+            number_format($p->profit, 2, ',', '.'),
+            "{$p->margin_pct}%",
+        ]);
 
         return $this->exportCsv(
             ['Producto', 'Categoria', 'Vendidos', 'Revenue (Bs)', 'Costo (Bs)', 'Ganancia (Bs)', 'Margen %'],
@@ -425,14 +480,7 @@ class ReportController extends Controller
     {
         [$from, $to] = $this->dateRange($request);
 
-        $bySchedule = Sale::where('status', 'completada')
-            ->whereDate('created_at', '>=', $from)
-            ->whereDate('created_at', '<=', $to)
-            ->selectRaw("CASE WHEN CAST(strftime('%H', sales.created_at) AS INTEGER) < 15 THEN 'manana' ELSE 'noche' END as schedule,
-                COUNT(*) as tickets, SUM(sales.total) as revenue")
-            ->groupBy('schedule')
-            ->get()
-            ->keyBy('schedule');
+        $bySchedule = $this->scheduleRows($from, $to, 'manana', 'noche');
 
         $manana = $bySchedule->get('manana');
         $noche = $bySchedule->get('noche');
@@ -447,13 +495,7 @@ class ReportController extends Controller
     {
         [$from, $to] = $this->dateRange($request);
 
-        $bySchedule = Sale::where('status', 'completada')
-            ->whereDate('created_at', '>=', $from)
-            ->whereDate('created_at', '<=', $to)
-            ->selectRaw("CASE WHEN CAST(strftime('%H', sales.created_at) AS INTEGER) < 15 THEN 'Manana (antes 3pm)' ELSE 'Noche (despues 3pm)' END as schedule,
-                COUNT(*) as tickets, SUM(sales.total) as revenue")
-            ->groupBy('schedule')
-            ->get();
+        $bySchedule = $this->scheduleRows($from, $to, 'Manana (antes 3pm)', 'Noche (despues 3pm)');
 
         $rows = $bySchedule->map(fn ($s) => [
             $s->schedule,
@@ -469,72 +511,84 @@ class ReportController extends Controller
         );
     }
 
+    protected function scheduleRows(string $from, string $to, string $labelManana, string $labelNoche)
+    {
+        $hour = $this->hourOfDayExpr('sales.created_at');
+
+        return Sale::where('status', 'completada')
+            ->whereDate('created_at', '>=', $from)
+            ->whereDate('created_at', '<=', $to)
+            ->selectRaw("CASE WHEN {$hour} < 15 THEN :manana ELSE :noche END as schedule,
+                COUNT(*) as tickets, SUM(sales.total) as revenue",
+                ['manana' => $labelManana, 'noche' => $labelNoche])
+            ->groupBy('schedule')
+            ->get()
+            ->keyBy('schedule');
+    }
+
     // ─── Productos de lento movimiento ──────────────────────
 
     public function slowMovers(Request $request): View
     {
         [$from, $to] = $this->dateRange($request);
-        $days = (int) $request->input('days', 30);
 
-        $activeProductIds = SaleItem::whereHas('sale', fn ($q) => $q->where('status', 'completada'))
-            ->whereDate('sale_items.created_at', '>=', now()->subDays($days))
-            ->pluck('product_id')
-            ->unique();
+        $products = $this->slowMoverRows($from, $to);
 
-        $products = Product::with('category')
-            ->active()
-            ->get()
-            ->map(function ($p) use ($activeProductIds) {
-                $p->is_slow = ! $activeProductIds->contains($p->id);
-                $p->lastSale = SaleItem::where('product_id', $p->id)
-                    ->whereHas('sale', fn ($q) => $q->where('status', 'completada'))
-                    ->max('sale_items.created_at');
-                $p->daysSinceSale = $p->lastSale ? now()->diffInDays($p->lastSale) : null;
-                return $p;
-            })
-            ->filter(fn ($p) => $p->is_slow)
-            ->sortBy('daysSinceSale', SORT_DESC, true)
-            ->values();
-
-        return view('reports.slow-movers', compact('products', 'days', 'from', 'to'));
+        return view('reports.slow-movers', compact('products', 'from', 'to'));
     }
 
     public function slowMoversExport(Request $request)
     {
         [$from, $to] = $this->dateRange($request);
-        $days = (int) $request->input('days', 30);
 
-        $activeProductIds = SaleItem::whereHas('sale', fn ($q) => $q->where('status', 'completada'))
-            ->whereDate('sale_items.created_at', '>=', now()->subDays($days))
-            ->pluck('product_id')
-            ->unique();
-
-        $products = Product::with('category')
-            ->active()
-            ->get()
-            ->map(function ($p) use ($activeProductIds) {
-                $p->is_slow = ! $activeProductIds->contains($p->id);
-                $p->lastSale = SaleItem::where('product_id', $p->id)
-                    ->whereHas('sale', fn ($q) => $q->where('status', 'completada'))
-                    ->max('sale_items.created_at');
-                $p->daysSinceSale = $p->lastSale ? now()->diffInDays($p->lastSale) : null;
-                return $p;
-            })
-            ->filter(fn ($p) => $p->is_slow);
+        $products = $this->slowMoverRows($from, $to);
 
         $rows = $products->map(fn ($p) => [
             $p->name,
             $p->category->name ?? '—',
             $p->control_type,
-            $p->lastSale ? now()->diffInDays($p->lastSale) : 'Nunca',
+            $p->daysSinceSale ?? 'Nunca',
             $p->stock_current,
         ]);
 
         return $this->exportCsv(
             ['Producto', 'Categoria', 'Tipo', 'Dias sin venta', 'Stock actual'],
             $rows,
-            "lento_movimiento_{$days}d_{$from}_{$to}.csv"
+            "lento_movimiento_{$from}_{$to}.csv"
         );
+    }
+
+    protected function slowMoverRows(string $from, string $to)
+    {
+        $soldInRange = SaleItem::whereHas('sale', fn ($q) => $q->where('status', 'completada')
+            ->whereDate('created_at', '>=', $from)
+            ->whereDate('created_at', '<=', $to))
+            ->whereNotNull('product_id')
+            ->selectRaw('product_id, SUM(quantity) as sold')
+            ->groupBy('product_id')
+            ->pluck('sold', 'product_id');
+
+        $lastSaleDates = SaleItem::whereHas('sale', fn ($q) => $q->where('status', 'completada'))
+            ->whereNotNull('product_id')
+            ->selectRaw('product_id, MAX(sale_items.created_at) as last')
+            ->groupBy('product_id')
+            ->pluck('last', 'product_id');
+
+        $toDate = \Carbon\Carbon::parse($to)->endOfDay();
+
+        return Product::with('category')
+            ->active()
+            ->get()
+            ->map(function ($p) use ($soldInRange, $lastSaleDates, $toDate) {
+                $p->sold_in_range = (int) ($soldInRange->get($p->id, 0));
+                $last = $lastSaleDates->get($p->id);
+                $p->lastSale = $last ? \Carbon\Carbon::parse($last) : null;
+                $p->daysSinceSale = $p->lastSale ? $toDate->diffInDays($p->lastSale) : null;
+                return $p;
+            })
+            ->filter(fn ($p) => $p->sold_in_range === 0)
+            ->sortByDesc('daysSinceSale')
+            ->values();
     }
 
     // ─── Rendimiento por dia de la semana ───────────────────
@@ -545,20 +599,7 @@ class ReportController extends Controller
 
         $dayLabels = [0 => 'Lunes', 1 => 'Martes', 2 => 'Miercoles', 3 => 'Jueves', 4 => 'Viernes', 5 => 'Sabado', 6 => 'Domingo'];
 
-        $byDay = Sale::where('status', 'completada')
-            ->whereDate('created_at', '>=', $from)
-            ->whereDate('created_at', '<=', $to)
-            ->selectRaw("CASE CAST(strftime('%w', sales.created_at) AS INTEGER) WHEN 0 THEN 6 ELSE CAST(strftime('%w', sales.created_at) AS INTEGER) - 1 END as dow,
-                COUNT(*) as tickets, SUM(sales.total) as revenue")
-            ->groupBy('dow')
-            ->get()
-            ->map(function ($d) use ($dayLabels) {
-                $d->day_name = $dayLabels[(int) $d->dow] ?? '—';
-                $d->avg = $d->tickets > 0 ? $d->revenue / $d->tickets : 0;
-                return $d;
-            })
-            ->sortBy('dow')
-            ->values();
+        $byDay = $this->weeklyRows($from, $to, $dayLabels);
 
         return view('reports.weekly-performance', compact('byDay', 'from', 'to'));
     }
@@ -569,28 +610,40 @@ class ReportController extends Controller
 
         $dayLabels = [0 => 'Lunes', 1 => 'Martes', 2 => 'Miercoles', 3 => 'Jueves', 4 => 'Viernes', 5 => 'Sabado', 6 => 'Domingo'];
 
-        $byDay = Sale::where('status', 'completada')
+        $byDay = $this->weeklyRows($from, $to, $dayLabels);
+
+        $rows = $byDay->map(fn ($d) => [
+            $d->day_name,
+            $d->tickets,
+            number_format($d->revenue, 2, ',', '.'),
+            $d->avg > 0 ? number_format($d->avg, 2, ',', '.') : '0,00',
+        ]);
+
+        return $this->exportCsv(
+            ['Dia', 'Tickets', 'Revenue (Bs)', 'Promedio/Ticket (Bs)'],
+            $rows,
+            "rendimiento_semanal_{$from}_{$to}.csv"
+        );
+    }
+
+    protected function weeklyRows(string $from, string $to, array $dayLabels)
+    {
+        $dow = $this->dayOfWeekExpr('sales.created_at');
+
+        return Sale::where('status', 'completada')
             ->whereDate('created_at', '>=', $from)
             ->whereDate('created_at', '<=', $to)
-            ->selectRaw("CASE CAST(strftime('%w', sales.created_at) AS INTEGER) WHEN 0 THEN 6 ELSE CAST(strftime('%w', sales.created_at) AS INTEGER) - 1 END as dow,
+            ->selectRaw("CASE {$dow} WHEN 0 THEN 6 ELSE {$dow} - 1 END as dow,
                 COUNT(*) as tickets, SUM(sales.total) as revenue")
             ->groupBy('dow')
             ->get()
             ->map(function ($d) use ($dayLabels) {
-                return [
-                    $dayLabels[(int) $d->dow] ?? '—',
-                    $d->tickets,
-                    number_format($d->revenue, 2, ',', '.'),
-                    $d->tickets > 0 ? number_format($d->revenue / $d->tickets, 2, ',', '.') : '0,00',
-                ];
+                $d->day_name = $dayLabels[(int) $d->dow] ?? '—';
+                $d->avg = $d->tickets > 0 ? $d->revenue / $d->tickets : 0;
+                return $d;
             })
-            ->sortBy(fn ($r) => array_search($r[0], $dayLabels, true));
-
-        return $this->exportCsv(
-            ['Dia', 'Tickets', 'Revenue (Bs)', 'Promedio/Ticket (Bs)'],
-            $rows = $byDay->values(),
-            "rendimiento_semanal_{$from}_{$to}.csv"
-        );
+            ->sortBy('dow')
+            ->values();
     }
 
     // ─── Produccion vs Ventas vs Mermas ─────────────────────
@@ -599,34 +652,7 @@ class ReportController extends Controller
     {
         [$from, $to] = $this->dateRange($request);
 
-        $produced = Production::whereDate('created_at', '>=', $from)
-            ->whereDate('created_at', '<=', $to)
-            ->selectRaw('product_id, SUM(quantity) as produced')
-            ->groupBy('product_id')
-            ->pluck('produced', 'product_id');
-
-        $sold = SaleItem::whereHas('sale', fn ($q) => $q->where('status', 'completada')
-            ->whereDate('created_at', '>=', $from)
-            ->whereDate('created_at', '<=', $to))
-            ->selectRaw('product_id, SUM(quantity) as sold')
-            ->groupBy('product_id')
-            ->pluck('sold', 'product_id');
-
-        $wasted = Merma::whereDate('created_at', '>=', $from)
-            ->whereDate('created_at', '<=', $to)
-            ->selectRaw('product_id, SUM(quantity) as wasted')
-            ->groupBy('product_id')
-            ->pluck('wasted', 'product_id');
-
-        $allProductIds = $produced->keys()->merge($sold->keys())->merge($wasted->keys())->unique();
-
-        $comparison = Product::whereIn('id', $allProductIds)->with('category')->get()->map(function ($p) use ($produced, $sold, $wasted) {
-            $p->produced = $produced->get($p->id, 0);
-            $p->sold = $sold->get($p->id, 0);
-            $p->wasted = $wasted->get($p->id, 0);
-            $p->efficiency = $p->produced > 0 ? round(($p->sold / $p->produced) * 100, 1) : 0;
-            return $p;
-        })->sortByDesc('sold')->values();
+        $comparison = $this->productionComparison($from, $to);
 
         return view('reports.production-vs-sales', compact('comparison', 'from', 'to'));
     }
@@ -635,18 +661,31 @@ class ReportController extends Controller
     {
         [$from, $to] = $this->dateRange($request);
 
+        $comparison = $this->productionComparison($from, $to);
+
+        $rows = $comparison->map(fn ($p) => [
+            $p->name,
+            $p->category_name,
+            $p->produced,
+            $p->sold,
+            $p->wasted,
+            "{$p->efficiency}%",
+        ]);
+
+        return $this->exportCsv(
+            ['Producto', 'Categoria', 'Producido', 'Vendido', 'Desperdiciado', 'Eficiencia %'],
+            $rows,
+            "produccion_vs_venta_{$from}_{$to}.csv"
+        );
+    }
+
+    protected function productionComparison(string $from, string $to)
+    {
         $produced = Production::whereDate('created_at', '>=', $from)
             ->whereDate('created_at', '<=', $to)
             ->selectRaw('product_id, SUM(quantity) as produced')
             ->groupBy('product_id')
             ->pluck('produced', 'product_id');
-
-        $sold = SaleItem::whereHas('sale', fn ($q) => $q->where('status', 'completada')
-            ->whereDate('created_at', '>=', $from)
-            ->whereDate('created_at', '<=', $to))
-            ->selectRaw('product_id, SUM(quantity) as sold')
-            ->groupBy('product_id')
-            ->pluck('sold', 'product_id');
 
         $wasted = Merma::whereDate('created_at', '>=', $from)
             ->whereDate('created_at', '<=', $to)
@@ -654,26 +693,67 @@ class ReportController extends Controller
             ->groupBy('product_id')
             ->pluck('wasted', 'product_id');
 
-        $allProductIds = $produced->keys()->merge($sold->keys())->merge($wasted->keys())->unique();
+        $sold = SaleItem::whereHas('sale', fn ($q) => $q->where('status', 'completada')
+            ->whereDate('created_at', '>=', $from)
+            ->whereDate('created_at', '<=', $to))
+            ->whereNotNull('product_id')
+            ->selectRaw('product_id, SUM(quantity) as sold')
+            ->groupBy('product_id')
+            ->pluck('sold', 'product_id');
 
-        $rows = Product::whereIn('id', $allProductIds)->get()->map(function ($p) use ($produced, $sold, $wasted) {
-            $prod = $produced->get($p->id, 0);
-            $s = $sold->get($p->id, 0);
-            $eff = $prod > 0 ? round(($s / $prod) * 100, 1) : 0;
-            return [
-                $p->name,
-                $p->category->name ?? '—',
-                $prod,
-                $s,
-                $wasted->get($p->id, 0),
-                "{$eff}%",
+        $comboSold = SaleItem::whereHas('sale', fn ($q) => $q->where('status', 'completada')
+            ->whereDate('created_at', '>=', $from)
+            ->whereDate('created_at', '<=', $to))
+            ->whereNotNull('combo_id')
+            ->selectRaw('combo_id, SUM(quantity) as sold')
+            ->groupBy('combo_id')
+            ->pluck('sold', 'combo_id');
+
+        $ids = $produced->keys()->merge($wasted->keys())->unique();
+        $byId = [];
+
+        foreach (Product::with('category')->whereIn('id', $ids)->get() as $p) {
+            $byId[$p->id] = [
+                'id' => $p->id,
+                'name' => $p->name,
+                'category_name' => $p->category?->name ?? '—',
+                'produced' => (int) ($produced->get($p->id, 0)),
+                'sold' => (int) ($sold->get($p->id, 0) ?? 0),
+                'wasted' => (int) ($wasted->get($p->id, 0)),
             ];
-        })->sortByDesc(fn ($r) => $r[3])->values();
+        }
 
-        return $this->exportCsv(
-            ['Producto', 'Categoria', 'Producido', 'Vendido', 'Desperdiciado', 'Eficiencia %'],
-            $rows,
-            "produccion_vs_venta_{$from}_{$to}.csv"
-        );
+        foreach (Product::with('category')->whereIn('id', $sold->keys())->get() as $p) {
+            if (! isset($byId[$p->id])) {
+                $byId[$p->id] = [
+                    'id' => $p->id,
+                    'name' => $p->name,
+                    'category_name' => $p->category?->name ?? '—',
+                    'produced' => 0,
+                    'sold' => (int) ($sold->get($p->id, 0)),
+                    'wasted' => 0,
+                ];
+            } else {
+                $byId[$p->id]['sold'] = (int) ($sold->get($p->id, 0));
+            }
+        }
+
+        foreach (Combo::whereIn('id', $comboSold->keys())->get() as $combo) {
+            $byId['combo_'.$combo->id] = [
+                'name' => $combo->name,
+                'category_name' => '—',
+                'produced' => 0,
+                'sold' => (int) ($comboSold->get($combo->id, 0)),
+                'wasted' => 0,
+            ];
+        }
+
+        return collect($byId)
+            ->map(function ($row) {
+                $row['efficiency'] = $row['produced'] > 0 ? round(($row['sold'] / $row['produced']) * 100, 1) : 0;
+                return (object) $row;
+            })
+            ->sortByDesc('sold')
+            ->values();
     }
 }

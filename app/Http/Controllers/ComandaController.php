@@ -37,8 +37,8 @@ class ComandaController extends Controller
 
     public function create(): View
     {
-        $products = Product::query()->active()->orderBy('name')->get(['id', 'name', 'sale_price', 'category_id', 'image', 'control_type']);
-        $combos = Combo::active()->with('products')->orderBy('name')->get(['id', 'name', 'sale_price']);
+        $products = Product::query()->active()->orderBy('name')->get(['id', 'name', 'sale_price', 'round_bs', 'category_id', 'image', 'control_type']);
+        $combos = Combo::active()->with('products')->orderBy('name')->get(['id', 'name', 'sale_price', 'round_bs']);
         $categories = Category::orderBy('name')->get(['id', 'name']);
         $rate = (float) (ExchangeRate::latest()->first()?->rate ?? 1);
 
@@ -75,8 +75,8 @@ class ComandaController extends Controller
         $this->syncDeliveredStatus($comanda);
 
         $rate = $this->currentRate();
-        $products = Product::query()->active()->orderBy('name')->get(['id', 'name', 'sale_price', 'category_id', 'image', 'control_type']);
-        $combos = Combo::active()->with('products')->orderBy('name')->get(['id', 'name', 'sale_price']);
+        $products = Product::query()->active()->orderBy('name')->get(['id', 'name', 'sale_price', 'round_bs', 'category_id', 'image', 'control_type']);
+        $combos = Combo::active()->with('products')->orderBy('name')->get(['id', 'name', 'sale_price', 'round_bs']);
         $categories = Category::orderBy('name')->get(['id', 'name']);
         $customers = Customer::query()->where('is_active', true)->orderBy('name')->get(['id', 'name']);
 
@@ -244,7 +244,7 @@ class ComandaController extends Controller
                 if (! $combo) {
                     continue;
                 }
-                $unitPrice = round((float) $combo->sale_price * $rate, 2);
+                $unitPrice = \App\Support\Pricing::bs((float) $combo->sale_price, $rate, $combo->round_bs);
                 $items[] = [
                     'product_id' => null,
                     'combo_id' => $combo->id,
@@ -259,7 +259,7 @@ class ComandaController extends Controller
                 if (! $product) {
                     continue;
                 }
-                $unitPrice = round((float) $product->sale_price * $rate, 2);
+                $unitPrice = \App\Support\Pricing::bs((float) $product->sale_price, $rate, $product->round_bs);
                 $items[] = [
                     'product_id' => $product->id,
                     'combo_id' => null,

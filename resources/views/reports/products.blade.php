@@ -32,13 +32,13 @@
                     @forelse($products as $p)
                     <tr>
                         <td>{{ $p->name }}</td>
-                        <td class="text-muted">{{ $p->category->name ?? '—' }}</td>
-                        <td><span class="badge-soft muted">{{ $p->control_type }}</span></td>
+                        <td class="text-muted">{{ $p->category_name }}</td>
+                        <td><span class="badge-soft muted">{{ ucfirst($p->control_type) }}</span></td>
                         <td class="text-end num">{{ $p->total_sold }}</td>
-                        <td class="text-end num">Bs {{ number_format($p->total_revenue, 2, ',', '.') }}</td>
+                        <td class="text-end num">Bs {{ number_format($p->revenue, 2, ',', '.') }}</td>
                         <td class="text-end num {{ $p->profit > 0 ? 'text-success' : ($p->profit < 0 ? 'text-danger' : '') }}">Bs {{ number_format($p->profit, 2, ',', '.') }}</td>
-                        <td class="text-end num {{ $p->stock_current <= $p->stock_min ? 'text-warning' : '' }}">
-                            {{ $p->stock_current }}
+                        <td class="text-end num {{ $p->stock_current !== null && $p->stock_current <= $p->stock_min ? 'text-warning' : '' }}">
+                            {{ $p->stock_current ?? '—' }}
                         </td>
                     </tr>
                     @empty

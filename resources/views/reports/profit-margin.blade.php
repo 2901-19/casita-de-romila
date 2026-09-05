@@ -58,9 +58,9 @@
                 <tbody>
                     @forelse($products as $p)
                     <tr>
-                        <td>{{ $p->product?->name ?? '—' }}</td>
-                        <td class="text-muted">{{ $p->product?->category?->name ?? '—' }}</td>
-                        <td class="text-end num">{{ $p->sold }}</td>
+                        <td>{{ $p->name }}</td>
+                        <td class="text-muted">{{ $p->category_name }}</td>
+                        <td class="text-end num">{{ $p->total_sold }}</td>
                         <td class="text-end num">Bs {{ number_format($p->revenue, 2, ',', '.') }}</td>
                         <td class="text-end num">Bs {{ number_format($p->cost, 2, ',', '.') }}</td>
                         <td class="text-end num {{ $p->profit > 0 ? 'text-success' : ($p->profit < 0 ? 'text-danger' : '') }}">Bs {{ number_format($p->profit, 2, ',', '.') }}</td>
@@ -73,7 +73,7 @@
                 <tfoot>
                     <tr class="table-group-divider">
                         <td colspan="2"><strong>Totales</strong></td>
-                        <td class="text-end num"><strong>{{ $products->sum('sold') }}</strong></td>
+                        <td class="text-end num"><strong>{{ $products->sum('total_sold') }}</strong></td>
                         <td class="text-end num"><strong>Bs {{ number_format($totalRevenue, 2, ',', '.') }}</strong></td>
                         <td class="text-end num"><strong>Bs {{ number_format($totalCost, 2, ',', '.') }}</strong></td>
                         <td class="text-end num"><strong class="{{ $totalProfit >= 0 ? 'text-success' : 'text-danger' }}">Bs {{ number_format($totalProfit, 2, ',', '.') }}</strong></td>

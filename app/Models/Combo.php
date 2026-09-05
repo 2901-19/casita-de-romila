@@ -13,11 +13,13 @@ class Combo extends Model
     protected $fillable = [
         'name',
         'sale_price',
+        'round_bs',
         'is_active',
     ];
 
     protected $casts = [
         'sale_price' => 'decimal:2',
+        'round_bs' => 'integer',
         'is_active' => 'boolean',
     ];
 

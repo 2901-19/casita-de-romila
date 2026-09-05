@@ -82,16 +82,16 @@ class ReportTest extends TestCase
         $response->assertSee('>Mes</a>', false);
     }
 
-    public function test_report_date_filter_presets_preserve_days_in_slow_movers(): void
+    public function test_slow_movers_uses_period_range_instead_of_days(): void
     {
         $user = $this->gerente();
         $this->actingAs($user);
 
-        $response = $this->get('/reports/slow-movers?days=60');
+        $response = $this->get('/reports/slow-movers');
 
         $response->assertStatus(200);
-        $response->assertSee('name="days"', false);
-        $response->assertSee('value="60"', false);
+        $response->assertSee('Sin ventas en el periodo');
+        $response->assertDontSee('name="days"', false);
     }
 
     public function test_sales_report_shows_data(): void
@@ -422,7 +422,7 @@ class ReportTest extends TestCase
         $response->assertStatus(200);
         $response->assertViewHas('products', function ($products) {
             $p = $products->first();
-            return $p && $p->profit == 70.00 && $p->sold == 10;
+            return $p && $p->profit == 70.00 && $p->total_sold == 10;
         });
     }
 
@@ -622,6 +622,309 @@ class ReportTest extends TestCase
 
         $response->assertStatus(200);
         $response->assertHeader('Content-Type', 'text/csv; charset=UTF-8');
+    }
+
+    // ─── Combos incluidos ──────────────────────────────────
+
+    public function test_products_report_includes_combos(): void
+    {
+        $user = $this->gerente();
+        $this->actingAs($user);
+
+        $combo = \App\Models\Combo::factory()->create(['name' => 'Combo Familiar', 'sale_price' => 12.00]);
+        $sale = Sale::factory()->create([
+            'user_id' => $user->id,
+            'status' => 'completada',
+        ]);
+        SaleItem::factory()->create([
+            'sale_id' => $sale->id,
+            'combo_id' => $combo->id,
+            'product_id' => null,
+            'product_name' => $combo->name,
+            'quantity' => 2,
+            'subtotal' => 2400.00,
+        ]);
+
+        $response = $this->get('/reports/products');
+
+        $response->assertStatus(200);
+        $response->assertViewHas('products', function ($products) use ($combo) {
+            $row = $products->first(fn ($p) => $p->name === 'Combo Familiar');
+            return $row && $row->control_type === 'combo' && $row->total_sold == 2;
+        });
+    }
+
+    public function test_profit_margin_includes_combos(): void
+    {
+        $user = $this->gerente();
+        $this->actingAs($user);
+
+        $combo = \App\Models\Combo::factory()->create(['name' => 'Combo Lunch', 'sale_price' => 8.00]);
+        $sale = Sale::factory()->create([
+            'user_id' => $user->id,
+            'status' => 'completada',
+        ]);
+        SaleItem::factory()->create([
+            'sale_id' => $sale->id,
+            'combo_id' => $combo->id,
+            'product_id' => null,
+            'product_name' => $combo->name,
+            'quantity' => 1,
+            'subtotal' => 1600.00,
+        ]);
+
+        $response = $this->get('/reports/profit-margin');
+
+        $response->assertStatus(200);
+        $response->assertViewHas('products', function ($products) use ($combo) {
+            $row = $products->first(fn ($p) => $p->name === 'Combo Lunch');
+            // rate=1 (sin tasa) -> cost = 8 * 1 = 8, revenue 1600 -> profit 1592, margen alto
+            return $row && $row->total_sold == 1 && $row->profit == 1592.0;
+        });
+    }
+
+    public function test_production_vs_sales_includes_combos(): void
+    {
+        $user = $this->gerente();
+        $this->actingAs($user);
+
+        $combo = \App\Models\Combo::factory()->create(['name' => 'Combo Noche']);
+        $sale = Sale::factory()->create([
+            'user_id' => $user->id,
+            'status' => 'completada',
+        ]);
+        SaleItem::factory()->create([
+            'sale_id' => $sale->id,
+            'combo_id' => $combo->id,
+            'product_id' => null,
+            'quantity' => 3,
+        ]);
+
+        $response = $this->get('/reports/production-vs-sales');
+
+        $response->assertStatus(200);
+        $response->assertViewHas('comparison', function ($comparison) use ($combo) {
+            $row = $comparison->firstWhere('name', $combo->name);
+            return $row && $row->sold == 3 && $row->produced == 0 && $row->efficiency == 0.0;
+        });
+    }
+
+    // ─── Costos convertidos a Bs ───────────────────────────
+
+    public function test_products_report_converts_cost_to_bs_at_current_rate(): void
+    {
+        $user = $this->gerente();
+        $this->actingAs($user);
+
+        \App\Models\ExchangeRate::factory()->create(['rate' => 100]);
+
+        $product = Product::factory()->create([
+            'cost_price' => 5.00,
+            'sale_price' => 10.00,
+            'stock_current' => 5,
+        ]);
+
+        $sale = Sale::factory()->create([
+            'user_id' => $user->id,
+            'status' => 'completada',
+        ]);
+        SaleItem::factory()->create([
+            'sale_id' => $sale->id,
+            'product_id' => $product->id,
+            'quantity' => 2,
+            'subtotal' => 2000.00,
+        ]);
+
+        $response = $this->get('/reports/products');
+
+        $response->assertStatus(200);
+        $response->assertViewHas('products', function ($products) use ($product) {
+            $row = $products->first(fn ($p) => $p->name === $product->name);
+            // revenue 2000 Bs, costo USD 10 -> 1000 Bs -> ganancia 1000
+            return $row && $row->cost == 1000.00 && $row->profit == 1000.00;
+        });
+    }
+
+    // ─── Mermas export ──────────────────────────────────────
+
+    public function test_waste_export_includes_reason(): void
+    {
+        $user = $this->gerente();
+        $this->actingAs($user);
+
+        $product = Product::factory()->create();
+        Merma::factory()->create([
+            'product_id' => $product->id,
+            'user_id' => $user->id,
+            'quantity' => 3,
+            'reason' => 'vencido',
+        ]);
+
+        $response = $this->get('/reports/waste/csv');
+
+        $response->assertStatus(200);
+        $csv = $response->streamedContent();
+        $this->assertStringContainsString('Vencido', $csv);
+    }
+
+    // ─── Creditos por periodo ───────────────────────────────
+
+    public function test_credits_report_shows_period_net_in_usd_and_bs(): void
+    {
+        $user = $this->gerente();
+        $this->actingAs($user);
+
+        \App\Models\ExchangeRate::factory()->create(['rate' => 100]);
+        $customer = \App\Models\Customer::factory()->create(['name' => 'Ana Perez']);
+
+        \App\Models\CreditMovement::factory()->create([
+            'customer_id' => $customer->id,
+            'user_id' => $user->id,
+            'type' => 'cargo',
+            'amount' => 60.00,
+            'created_at' => now(),
+        ]);
+        \App\Models\CreditMovement::factory()->create([
+            'customer_id' => $customer->id,
+            'user_id' => $user->id,
+            'type' => 'pago',
+            'amount' => 10.00,
+            'created_at' => now(),
+        ]);
+
+        $response = $this->get('/reports/credits');
+
+        $response->assertStatus(200);
+        $response->assertViewHas('customers', function ($customers) use ($customer) {
+            $row = $customers->first(fn ($c) => $c->id === $customer->id);
+            return $row
+                && $row->period_cargos == 60.00
+                && $row->period_pagos == 10.00
+                && $row->period_net_usd == 50.00
+                && $row->period_net_bs == 5000.00;
+        });
+        $response->assertViewHas('totalDebtUsd', fn ($t) => $t == 50.00);
+        $response->assertViewHas('totalDebtBs', fn ($t) => $t == 5000.00);
+        // La etiqueta ya no dice "Bs" sobre una cifra USD
+        $response->assertDontSee('Saldo (Bs)', false);
+    }
+
+    // ─── Lento movimiento respeta rango ─────────────────────
+
+    public function test_slow_movers_respects_selected_range(): void
+    {
+        $user = $this->gerente();
+        $this->actingAs($user);
+
+        $soldInRange = Product::factory()->create(['is_active' => true, 'stock_current' => 5]);
+        $soldOutside = Product::factory()->create(['is_active' => true, 'stock_current' => 5]);
+
+        $sale = Sale::factory()->create([
+            'user_id' => $user->id,
+            'status' => 'completada',
+            'created_at' => now(),
+        ]);
+        SaleItem::factory()->create([
+            'sale_id' => $sale->id,
+            'product_id' => $soldInRange->id,
+            'quantity' => 1,
+        ]);
+
+        $oldSale = Sale::factory()->create([
+            'user_id' => $user->id,
+            'status' => 'completada',
+            'created_at' => now()->subMonths(2),
+        ]);
+        $oldSale->items()->create([
+            'product_id' => $soldOutside->id,
+            'product_name' => $soldOutside->name,
+            'quantity' => 1,
+            'unit_price' => 5.00,
+            'subtotal' => 5.00,
+        ]);
+
+        $from = now()->subWeek()->format('Y-m-d');
+        $to = now()->format('Y-m-d');
+
+        $response = $this->get("/reports/slow-movers?from={$from}&to={$to}");
+
+        $response->assertStatus(200);
+        $response->assertViewHas('products', function ($products) use ($soldInRange, $soldOutside) {
+            $ids = $products->pluck('id');
+            return $ids->contains($soldOutside->id) && ! $ids->contains($soldInRange->id);
+        });
+    }
+
+    // ─── Horario ────────────────────────────────────────────
+
+    public function test_sales_by_schedule_sums_revenue_by_period(): void
+    {
+        $user = $this->gerente();
+        $this->actingAs($user);
+
+        Sale::factory()->create([
+            'user_id' => $user->id,
+            'status' => 'completada',
+            'total' => 50.00,
+            'created_at' => now()->setTime(10, 0),
+        ]);
+        Sale::factory()->create([
+            'user_id' => $user->id,
+            'status' => 'completada',
+            'total' => 80.00,
+            'created_at' => now()->setTime(20, 0),
+        ]);
+
+        $response = $this->get('/reports/sales-by-schedule');
+
+        $response->assertStatus(200);
+        $response->assertViewHas('manana', fn ($m) => abs((float) ($m->revenue ?? 0) - 50.0) < 0.01);
+        $response->assertViewHas('noche', fn ($n) => abs((float) ($n->revenue ?? 0) - 80.0) < 0.01);
+    }
+
+    // ─── Rendimiento semanal ────────────────────────────────
+
+    public function test_weekly_performance_maps_days_from_monday(): void
+    {
+        $user = $this->gerente();
+        $this->actingAs($user);
+
+        $monday = now()->modify('next monday')->startOfDay();
+
+        Sale::factory()->create([
+            'user_id' => $user->id,
+            'status' => 'completada',
+            'total' => 40.00,
+            'created_at' => $monday,
+        ]);
+
+        $from = $monday->format('Y-m-d');
+        $to = $monday->format('Y-m-d');
+
+        $response = $this->get("/reports/weekly-performance?from={$from}&to={$to}");
+
+        $response->assertStatus(200);
+        $response->assertViewHas('byDay', function ($byDay) {
+            $lunes = $byDay->firstWhere('day_name', 'Lunes');
+            return $lunes && (int) $lunes->dow === 0 && $lunes->revenue == 40.00;
+        });
+    }
+
+    // ─── Index ──────────────────────────────────────────────
+
+    public function test_index_fixes_credit_kpi_currency(): void
+    {
+        $user = $this->gerente();
+        $this->actingAs($user);
+
+        \App\Models\ExchangeRate::factory()->create(['rate' => 100]);
+        \App\Models\Customer::factory()->create(['balance' => -25.00]);
+
+        $response = $this->get('/reports');
+
+        $response->assertStatus(200);
+        $response->assertViewHas('pendingCreditUsd', fn ($v) => (abs((float) $v) - 25.0) < 0.01);
+        $response->assertViewHas('pendingCreditBs', fn ($v) => (abs((float) $v) - 2500.0) < 0.01);
     }
 
     // ─── Access control ─────────────────────────────────────

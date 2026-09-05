@@ -15,6 +15,7 @@ document.addEventListener('alpine:init', function () {
             lastSalePaymentMethod: '',
             processing: false,
             checkoutError: '',
+            checkoutModal: null,
             _receiptTime: '',
             _debounceTimer: null,
 
@@ -153,6 +154,17 @@ document.addEventListener('alpine:init', function () {
                 this.paymentMethod = 'efectivo';
             },
 
+            openCheckoutModal: function () {
+                if (Object.keys(this.cart).length === 0 || (this.paymentMethod === 'credito' && !this.customerId)) {
+                    return;
+                }
+                this.updateReceiptTime();
+                var el = document.getElementById('checkoutModal');
+                if (!el) return;
+                this.checkoutModal = this.checkoutModal || bootstrap.Modal.getOrCreateInstance(el);
+                this.checkoutModal.show();
+            },
+
             formatNumber: function (n) {
                 return n.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
             },
@@ -162,7 +174,7 @@ document.addEventListener('alpine:init', function () {
                 this.processing = true;
                 this.checkoutError = '';
 
-                let checkoutModal = bootstrap.Modal.getInstance(document.getElementById('checkoutModal'));
+                let checkoutModal = this.checkoutModal || bootstrap.Modal.getInstance(document.getElementById('checkoutModal'));
 
                 try {
                     let response = await fetch('/pos', {
@@ -179,26 +191,38 @@ document.addEventListener('alpine:init', function () {
                         }),
                     });
 
-                    let data = await response.json();
+                    let text = await response.text();
+                    let data = null;
+                    if (text) {
+                        try {
+                            data = JSON.parse(text);
+                        } catch (e) {
+                            data = null;
+                        }
+                    }
 
-                    if (response.ok) {
-                        checkoutModal.hide();
+                    if (response.ok && data) {
+                        if (checkoutModal) checkoutModal.hide();
                         this.lastSaleTotal = this.subtotal;
                         this.lastSalePaymentMethod = this.paymentMethod;
                         this.clearCart();
                         let successModal = new bootstrap.Modal(document.getElementById('successModal'));
                         successModal.show();
                     } else {
-                        var errorMsg = data.error || data.message || 'Error al procesar la venta.';
-                        if (data.errors) {
+                        var errorMsg = (data && (data.error || data.message)) || ('Error al procesar la venta. (HTTP ' + response.status + ')');
+                        if (data && data.errors) {
                             var firstError = Object.values(data.errors)[0];
                             if (Array.isArray(firstError)) {
                                 errorMsg = firstError[0];
                             }
                         }
+                        if (!data) {
+                            console.error('Checkout: respuesta no JSON (HTTP ' + response.status + '):', text.slice(0, 300));
+                        }
                         this.checkoutError = errorMsg;
                     }
                 } catch (err) {
+                    console.error('Error en checkout:', err);
                     this.checkoutError = 'Error de conexión. Intenta de nuevo.';
                 } finally {
                     this.processing = false;
