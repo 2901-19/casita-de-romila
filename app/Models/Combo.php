@@ -12,6 +12,7 @@ class Combo extends Model
     use HasFactory;
     protected $fillable = [
         'name',
+        'image',
         'sale_price',
         'round_bs',
         'is_active',

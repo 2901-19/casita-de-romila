@@ -1,26 +1,38 @@
 @extends('layouts.app')
 
-@section('title', 'Comandas')
+@section('title', $scope === 'history' ? 'Historial de Comandas' : 'Comandas')
 
 @section('content')
 <div class="card">
     <div class="card-body">
         <div class="d-flex justify-content-between align-items-center mb-3">
-            <h2 class="card-title">Comandas</h2>
-            <a href="{{ route('comandas.create') }}" class="btn btn-brand btn-sm">
-                <i class="bi bi-plus-lg me-1"></i> Nueva Comanda
-            </a>
+            <h2 class="card-title">{{ $scope === 'history' ? 'Historial de Comandas' : 'Comandas' }}</h2>
+            <div class="d-flex gap-2">
+                @if($scope === 'history')
+                <a href="{{ route('comandas.index') }}" class="btn btn-outline-brand btn-sm">
+                    <i class="bi bi-clipboard-check me-1"></i> Activas
+                </a>
+                @else
+                <a href="{{ route('comandas.history') }}" class="btn btn-outline-brand btn-sm">
+                    <i class="bi bi-clock-history me-1"></i> Historial
+                </a>
+                @endif
+                <a href="{{ route('comandas.create') }}" class="btn btn-brand btn-sm">
+                    <i class="bi bi-plus-lg me-1"></i> Nueva Comanda
+                </a>
+            </div>
         </div>
 
         <form method="GET" class="row g-2 mb-3">
+            @if($scope !== 'history')
             <div class="col-6 col-sm-2">
                 <select name="status" class="form-select">
                     <option value="">Estado</option>
                     <option value="montada" {{ request('status') === 'montada' ? 'selected' : '' }}>Montada</option>
                     <option value="entregada" {{ request('status') === 'entregada' ? 'selected' : '' }}>Entregada</option>
-                    <option value="cobrada" {{ request('status') === 'cobrada' ? 'selected' : '' }}>Cobrada</option>
                 </select>
             </div>
+            @endif
             <div class="col-6 col-sm-2">
                 <select name="order_type" class="form-select">
                     <option value="">Tipo</option>
@@ -33,7 +45,7 @@
                 <button type="submit" class="btn btn-outline-brand w-100">Filtrar</button>
             </div>
             <div class="col-6 col-sm-2">
-                <a href="{{ route('comandas.index') }}" class="btn btn-outline-secondary w-100">Limpiar</a>
+                <a href="{{ $scope === 'history' ? route('comandas.history') : route('comandas.index') }}" class="btn btn-outline-secondary w-100">Limpiar</a>
             </div>
         </form>
 
@@ -89,7 +101,7 @@
                     <tr>
                         <td colspan="7" class="text-center text-muted py-4">
                             <i class="bi bi-journal-text empty-row-icon"></i>
-                            No hay comandas.
+                            {{ $scope === 'history' ? 'No hay comandas cerradas.' : 'No hay comandas activas.' }}
                         </td>
                     </tr>
                     @endforelse

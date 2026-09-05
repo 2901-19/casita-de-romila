@@ -6,6 +6,8 @@ use App\Models\Combo;
 use App\Models\Product;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
 class ComboTest extends TestCase
@@ -270,5 +272,151 @@ class ComboTest extends TestCase
 
         $response->assertSessionHas('success');
         $this->assertDatabaseHas('combos', ['id' => $combo->id, 'round_bs' => null]);
+    }
+
+    public function test_create_and_edit_views_have_image_dropzone(): void
+    {
+        $user = User::factory()->gerente()->create();
+        $this->actingAs($user);
+        $combo = Combo::factory()->create();
+
+        $this->get('/combos/create')
+            ->assertStatus(200)
+            ->assertSee('id="imgDropzone"', false)
+            ->assertSee('name="image"', false);
+
+        $this->get("/combos/{$combo->id}/edit")
+            ->assertStatus(200)
+            ->assertSee('id="imgDropzone"', false)
+            ->assertSee('id="removeImageFlag"', false);
+    }
+
+    public function test_index_shows_combo_image(): void
+    {
+        $user = User::factory()->gerente()->create();
+        $this->actingAs($user);
+        $combo = Combo::factory()->create(['image' => 'combos/foto.jpg']);
+
+        $this->get('/combos')
+            ->assertStatus(200)
+            ->assertSee(asset('storage/combos/foto.jpg'));
+    }
+
+    public function test_stores_combo_with_image(): void
+    {
+        Storage::fake('public');
+        $user = User::factory()->gerente()->create();
+        $this->actingAs($user);
+        $product = Product::factory()->create();
+
+        $response = $this->post('/combos', [
+            'name' => 'Combo con Foto',
+            'sale_price' => 8.50,
+            'is_active' => true,
+            'products' => [
+                ['id' => $product->id, 'quantity' => 1],
+            ],
+            'image' => UploadedFile::fake()->image('combo.jpg'),
+        ]);
+
+        $response->assertSessionHas('success');
+        $combo = Combo::where('name', 'Combo con Foto')->first();
+
+        $this->assertNotNull($combo->image);
+        $this->assertStringStartsWith('combos/', $combo->image);
+        Storage::disk('public')->assertExists($combo->image);
+    }
+
+    public function test_update_replaces_combo_image(): void
+    {
+        Storage::fake('public');
+        $user = User::factory()->gerente()->create();
+        $this->actingAs($user);
+        $product = Product::factory()->create();
+
+        $oldPath = UploadedFile::fake()->image('vieja.png')->store('combos', 'public');
+        $combo = Combo::factory()->create(['image' => $oldPath]);
+
+        $response = $this->put("/combos/{$combo->id}", [
+            'name' => $combo->name,
+            'sale_price' => $combo->sale_price,
+            'is_active' => true,
+            'products' => [
+                ['id' => $product->id, 'quantity' => 1],
+            ],
+            'image' => UploadedFile::fake()->image('nueva.jpg'),
+        ]);
+
+        $response->assertSessionHas('success');
+        $combo->refresh();
+
+        Storage::disk('public')->assertMissing($oldPath);
+        $this->assertNotEquals($oldPath, $combo->image);
+        Storage::disk('public')->assertExists($combo->image);
+    }
+
+    public function test_update_can_remove_combo_image(): void
+    {
+        Storage::fake('public');
+        $user = User::factory()->gerente()->create();
+        $this->actingAs($user);
+        $product = Product::factory()->create();
+
+        $path = UploadedFile::fake()->image('foto.jpg')->store('combos', 'public');
+        $combo = Combo::factory()->create(['image' => $path]);
+
+        $response = $this->put("/combos/{$combo->id}", [
+            'name' => $combo->name,
+            'sale_price' => $combo->sale_price,
+            'is_active' => true,
+            'products' => [
+                ['id' => $product->id, 'quantity' => 1],
+            ],
+            'remove_image' => '1',
+        ]);
+
+        $response->assertSessionHas('success');
+        $combo->refresh();
+
+        $this->assertNull($combo->image);
+        Storage::disk('public')->assertMissing($path);
+    }
+
+    public function test_rejects_invalid_combo_image(): void
+    {
+        Storage::fake('public');
+        $user = User::factory()->gerente()->create();
+        $this->actingAs($user);
+        $product = Product::factory()->create();
+
+        $response = $this->post('/combos', [
+            'name' => 'Combo Invalido',
+            'sale_price' => 8.50,
+            'is_active' => true,
+            'products' => [
+                ['id' => $product->id, 'quantity' => 1],
+            ],
+            'image' => UploadedFile::fake()->create('documento.pdf', 100, 'application/pdf'),
+        ]);
+
+        $response->assertSessionHasErrors('image');
+        $this->assertDatabaseMissing('combos', ['name' => 'Combo Invalido']);
+    }
+
+    public function test_deletes_combo_with_image_removes_file(): void
+    {
+        Storage::fake('public');
+        $user = User::factory()->gerente()->create();
+        $this->actingAs($user);
+        $product = Product::factory()->create();
+
+        $path = UploadedFile::fake()->image('foto.jpg')->store('combos', 'public');
+        $combo = Combo::factory()->create(['image' => $path]);
+        $combo->products()->attach($product->id, ['quantity' => 1]);
+
+        $this->delete("/combos/{$combo->id}");
+
+        Storage::disk('public')->assertMissing($path);
+        $this->assertDatabaseMissing('combos', ['id' => $combo->id]);
     }
 }

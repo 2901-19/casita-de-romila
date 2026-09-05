@@ -78,6 +78,7 @@ Route::middleware('auth')->group(function () {
     Route::get('pos/products', [PosController::class, 'products'])->name('pos.products');
 
     Route::get('comandas', [ComandaController::class, 'index'])->name('comandas.index');
+    Route::get('comandas/history', [ComandaController::class, 'history'])->name('comandas.history');
     Route::get('comandas/create', [ComandaController::class, 'create'])->name('comandas.create');
     Route::post('comandas', [ComandaController::class, 'store'])->name('comandas.store');
     Route::get('comandas/{comanda}', [ComandaController::class, 'show'])->name('comandas.show');

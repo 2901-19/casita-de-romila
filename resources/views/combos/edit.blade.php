@@ -6,7 +6,7 @@
 <div>
     <div class="card">
         <div class="card-body p-3 p-lg-4">
-            <form method="POST" action="{{ route('combos.update', $combo) }}" novalidate>
+            <form method="POST" action="{{ route('combos.update', $combo) }}" enctype="multipart/form-data" novalidate>
                 @csrf
                 @method('PUT')
 
@@ -24,6 +24,28 @@
                                    required>
                             @error('name')
                                 <div class="invalid-feedback">{{ $message }}</div>
+                            @enderror
+                        </div>
+
+                        <div class="mb-4">
+                            <label for="comboImage" class="form-label">Imagen de referencia</label>
+                            <input type="hidden" name="remove_image" id="removeImageFlag" value="0">
+                            <div class="img-dropzone" id="imgDropzone" tabindex="0" role="button" aria-label="Subir imagen">
+                                <input type="file" id="comboImage" name="image" accept="image/*" class="d-none">
+                                <div class="dropzone-empty {{ $combo->image ? 'd-none' : '' }}" id="dropzoneEmpty">
+                                    <i class="bi bi-image" aria-hidden="true"></i>
+                                    <p>Arrastra una imagen o <span class="link">haz clic para subir</span></p>
+                                    <small>JPG, PNG o WebP · máx. 2 MB</small>
+                                </div>
+                                <div class="dropzone-preview {{ $combo->image ? '' : 'd-none' }}" id="dropzonePreview">
+                                    <img id="previewImg" src="{{ $combo->image ? asset('storage/'.$combo->image) : '' }}" alt="Vista previa">
+                                    <button type="button" class="btn-preview-remove" id="removeImg" aria-label="Quitar imagen">
+                                        <i class="bi bi-x-lg"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            @error('image')
+                                <div class="text-danger small mt-1">{{ $message }}</div>
                             @enderror
                         </div>
 
@@ -381,6 +403,39 @@
     document.getElementById('applyComboPrice').addEventListener('click', function () {
         document.getElementById('salePriceUSD').value = comboTotalUsd.toFixed(2);
         updateBsPrice();
+    });
+
+    var dropzone = document.getElementById('imgDropzone');
+    var fileInput = document.getElementById('comboImage');
+    var emptyEl = document.getElementById('dropzoneEmpty');
+    var previewEl = document.getElementById('dropzonePreview');
+    var previewImg = document.getElementById('previewImg');
+    var removeBtn = document.getElementById('removeImg');
+    var removeFlag = document.getElementById('removeImageFlag');
+
+    dropzone.addEventListener('click', function () { fileInput.click(); });
+    dropzone.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); fileInput.click(); }
+    });
+    fileInput.addEventListener('change', function () {
+        var file = fileInput.files && fileInput.files[0];
+        if (!file) return;
+        var reader = new FileReader();
+        reader.onload = function (e) {
+            previewImg.src = e.target.result;
+            emptyEl.classList.add('d-none');
+            previewEl.classList.remove('d-none');
+        };
+        reader.readAsDataURL(file);
+        removeFlag.value = '0';
+    });
+    removeBtn.addEventListener('click', function (e) {
+        e.stopPropagation();
+        fileInput.value = '';
+        previewImg.src = '';
+        previewEl.classList.add('d-none');
+        emptyEl.classList.remove('d-none');
+        removeFlag.value = '1';
     });
 
     updateBsPrice();

@@ -25,20 +25,33 @@ class ComandaController extends Controller
 
     public function index(Request $request): View
     {
-        $comandas = Comanda::with(['user', 'items', 'payments'])
+        $comandas = $this->buildListQuery($request, [Comanda::STATUS_MONTADA, Comanda::STATUS_ENTREGADA]);
+
+        return view('comandas.index', ['comandas' => $comandas, 'scope' => 'active']);
+    }
+
+    public function history(Request $request): View
+    {
+        $comandas = $this->buildListQuery($request, [Comanda::STATUS_COBRADA]);
+
+        return view('comandas.index', ['comandas' => $comandas, 'scope' => 'history']);
+    }
+
+    protected function buildListQuery(Request $request, array $statuses)
+    {
+        return Comanda::with(['user', 'items', 'payments'])
+            ->whereIn('status', $statuses)
             ->when($request->status, fn ($q) => $q->where('status', $request->status))
             ->when($request->order_type, fn ($q) => $q->whereHas('items', fn ($q) => $q->where('order_type', $request->order_type)))
             ->orderByDesc('id')
             ->paginate(15)
             ->withQueryString();
-
-        return view('comandas.index', compact('comandas'));
     }
 
     public function create(): View
     {
         $products = Product::query()->active()->orderBy('name')->get(['id', 'name', 'sale_price', 'round_bs', 'category_id', 'image', 'control_type']);
-        $combos = Combo::active()->with('products')->orderBy('name')->get(['id', 'name', 'sale_price', 'round_bs']);
+        $combos = Combo::active()->with('products')->orderBy('name')->get(['id', 'name', 'image', 'sale_price', 'round_bs']);
         $categories = Category::orderBy('name')->get(['id', 'name']);
         $rate = (float) (ExchangeRate::latest()->first()?->rate ?? 1);
 
@@ -65,7 +78,7 @@ class ComandaController extends Controller
         $this->saveItems($comanda, $items);
 
         return redirect()
-            ->route('comandas.show', $comanda)
+            ->route('comandas.index')
             ->with('success', "Comanda #{$comanda->comanda_number} registrada.");
     }
 
@@ -76,7 +89,7 @@ class ComandaController extends Controller
 
         $rate = $this->currentRate();
         $products = Product::query()->active()->orderBy('name')->get(['id', 'name', 'sale_price', 'round_bs', 'category_id', 'image', 'control_type']);
-        $combos = Combo::active()->with('products')->orderBy('name')->get(['id', 'name', 'sale_price', 'round_bs']);
+        $combos = Combo::active()->with('products')->orderBy('name')->get(['id', 'name', 'image', 'sale_price', 'round_bs']);
         $categories = Category::orderBy('name')->get(['id', 'name']);
         $customers = Customer::query()->where('is_active', true)->orderBy('name')->get(['id', 'name']);
 
@@ -210,7 +223,7 @@ class ComandaController extends Controller
         }
 
         return redirect()
-            ->route('comandas.show', $comanda)
+            ->route('comandas.index')
             ->with('success', 'Comanda cerrada. Venta registrada.');
     }
 

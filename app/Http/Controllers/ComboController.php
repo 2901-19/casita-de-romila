@@ -9,6 +9,7 @@ use App\Models\ExchangeRate;
 use App\Models\Product;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\View\View;
 
 class ComboController extends Controller
@@ -51,6 +52,10 @@ class ComboController extends Controller
         $products = $data['products'];
         unset($data['products']);
 
+        if ($request->hasFile('image')) {
+            $data['image'] = $request->file('image')->store('combos', 'public');
+        }
+
         $combo = Combo::create($data);
 
         foreach ($products as $product) {
@@ -79,7 +84,15 @@ class ComboController extends Controller
     {
         $data = $request->validated();
         $products = $data['products'];
-        unset($data['products']);
+        unset($data['products'], $data['remove_image']);
+
+        if ($request->boolean('remove_image')) {
+            $this->deleteImage($combo);
+            $data['image'] = null;
+        } elseif ($request->hasFile('image')) {
+            $this->deleteImage($combo);
+            $data['image'] = $request->file('image')->store('combos', 'public');
+        }
 
         $combo->update($data);
 
@@ -113,11 +126,19 @@ class ComboController extends Controller
                 ->with('error', 'No se puede eliminar el combo "' . $combo->name . '" porque tiene ventas registradas.');
         }
 
+        $this->deleteImage($combo);
         $combo->products()->detach();
         $combo->delete();
 
         return redirect()
             ->route('combos.index')
             ->with('success', 'Combo eliminado.');
+    }
+
+    private function deleteImage(Combo $combo): void
+    {
+        if ($combo->image) {
+            Storage::disk('public')->delete($combo->image);
+        }
     }
 }

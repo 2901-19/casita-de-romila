@@ -15,6 +15,7 @@ class StoreComboRequest extends FormRequest
     {
         return [
             'name' => ['required', 'string', 'max:150'],
+            'image' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'max:2048'],
             'sale_price' => ['required', 'numeric', 'min:0'],
             'round_bs' => ['nullable', 'integer', 'min:1'],
             'is_active' => ['nullable', 'boolean'],

@@ -196,6 +196,7 @@ document.addEventListener('alpine:init', function () {
                             id: 'combo_{{ $combo->id }}',
                             name: {!! json_encode($combo->name) !!},
                             sale_price: {{ number_format(\App\Support\Pricing::bs((float) $combo->sale_price, $rate, $combo->round_bs), 2, '.', '') }},
+                            image: {!! json_encode($combo->image ? asset('storage/'.$combo->image) : '') !!},
                             is_combo: true,
                             is_demanda: false,
                         },

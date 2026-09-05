@@ -61,7 +61,7 @@ class PosController extends Controller
                 'name' => $combo->name,
                 'sale_price' => Pricing::bs((float) $combo->sale_price, $rate, $combo->round_bs),
                 'category_id' => null,
-                'image' => '',
+                'image' => $combo->image ? asset('storage/'.$combo->image) : '',
                 'is_combo' => true,
                 'components' => $combo->products->map(fn ($p) => [
                     'id' => $p->id,

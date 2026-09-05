@@ -592,4 +592,102 @@ class ComandaTest extends TestCase
         $response->assertStatus(200);
         $response->assertSee('1020.00', false);
     }
+
+    public function test_store_redirects_to_index(): void
+    {
+        $user = User::factory()->create();
+        $this->actingAs($user);
+        $product = $this->makeProduct();
+
+        $response = $this->post('/comandas', $this->makeCart([[$product, 1]]));
+
+        $response->assertRedirect(route('comandas.index'));
+        $response->assertSessionHas('success');
+    }
+
+    public function test_close_redirects_to_index(): void
+    {
+        $user = User::factory()->create();
+        $this->actingAs($user);
+        $product = $this->makeProduct();
+        $this->post('/comandas', $this->makeCart([[$product, 1]]));
+        $comanda = Comanda::first();
+
+        $this->collectComanda($comanda->id, 'efectivo');
+        $response = $this->closeComanda($comanda->id);
+
+        $response->assertRedirect(route('comandas.index'));
+        $response->assertSessionHas('success');
+    }
+
+    public function test_index_excludes_cobrada_comandas(): void
+    {
+        $user = User::factory()->create();
+        $this->actingAs($user);
+        $product = $this->makeProduct();
+
+        $this->post('/comandas', $this->makeCart([[$product, 1]]));
+        $this->post('/comandas', $this->makeCart([[$product, 1]]));
+        $this->patch('/comandas/' . Comanda::orderBy('id')->skip(1)->first()->id . '/entregar');
+        $this->post('/comandas', $this->makeCart([[$product, 1]]));
+        $this->collectComanda(Comanda::orderBy('id')->skip(2)->first()->id, 'efectivo');
+        $this->closeComanda(Comanda::orderBy('id')->skip(2)->first()->id);
+
+        $response = $this->get('/comandas');
+
+        $response->assertStatus(200);
+        $response->assertSee('#0001');
+        $response->assertSee('#0002');
+        $response->assertDontSee('#0003');
+        $this->assertEquals(2, $response->viewData('comandas')->total());
+    }
+
+    public function test_history_shows_cobrada_comandas_only(): void
+    {
+        $user = User::factory()->create();
+        $this->actingAs($user);
+        $product = $this->makeProduct();
+
+        $this->post('/comandas', $this->makeCart([[$product, 1]]));
+        $c1 = Comanda::first();
+        $this->post('/comandas', $this->makeCart([[$product, 1]]));
+        $c2 = Comanda::orderBy('id')->skip(1)->first();
+        $this->collectComanda($c2->id, 'efectivo');
+        $this->closeComanda($c2->id);
+
+        $response = $this->get('/comandas/history');
+
+        $response->assertStatus(200);
+        $response->assertViewIs('comandas.index');
+        $response->assertSee('#0002');
+        $response->assertDontSee('#0001');
+        $this->assertEquals(1, $response->viewData('comandas')->total());
+        $this->assertEquals('history', $response->viewData('scope'));
+    }
+
+    public function test_index_has_historial_button(): void
+    {
+        $user = User::factory()->create();
+        $this->actingAs($user);
+
+        $response = $this->get('/comandas');
+
+        $response->assertStatus(200);
+        $response->assertSee(route('comandas.history'));
+    }
+
+    public function test_status_filter_only_lists_active_statuses(): void
+    {
+        $user = User::factory()->create();
+        $this->actingAs($user);
+        $product = $this->makeProduct();
+        $this->post('/comandas', $this->makeCart([[$product, 1, 'local']]));
+        $this->post('/comandas', $this->makeCart([[$product, 1, 'delivery']]));
+        $this->patch('/comandas/' . Comanda::orderBy('id')->skip(1)->first()->id . '/entregar');
+
+        $response = $this->get('/comandas?status=entregada');
+
+        $data = $response->viewData('comandas');
+        $this->assertEquals(1, $data->total());
+    }
 }

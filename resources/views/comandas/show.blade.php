@@ -506,7 +506,7 @@ document.addEventListener('alpine:init', function () {
             get combos() {
                 return [
                     @foreach($combos as $combo)
-                        { id: 'combo_{{ $combo->id }}', name: {!! json_encode($combo->name) !!}, is_combo: true, is_demanda: false },
+                        { id: 'combo_{{ $combo->id }}', name: {!! json_encode($combo->name) !!}, image: {!! json_encode($combo->image ? asset('storage/'.$combo->image) : '') !!}, is_combo: true, is_demanda: false },
                     @endforeach
                 ];
             },

@@ -59,7 +59,11 @@
                         <td>
                             <div class="d-flex align-items-center gap-2">
                                 <span class="thumb">
-                                    <i class="bi bi-box-seam"></i>
+                                    @if($combo->image)
+                                        <img src="{{ asset('storage/'.$combo->image) }}" alt="{{ $combo->name }}" loading="lazy">
+                                    @else
+                                        <i class="bi bi-box-seam"></i>
+                                    @endif
                                 </span>
                                 <span class="fw-semibold">{{ $combo->name }}</span>
                             </div>
