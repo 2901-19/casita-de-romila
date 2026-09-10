@@ -8,7 +8,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 class Merma extends Model
 {
     use HasFactory;
-    protected $fillable = ['product_id', 'user_id', 'quantity', 'reason', 'notes'];
+    protected $fillable = ['product_id', 'user_id', 'quantity', 'reason', 'type', 'notes'];
 
     protected function casts(): array
     {
@@ -27,9 +27,32 @@ class Merma extends Model
         return $this->belongsTo(User::class);
     }
 
+    public function isConsumption(): bool
+    {
+        return $this->type === 'consumo';
+    }
+
+    public function getTypeLabelAttribute(): string
+    {
+        return $this->isConsumption() ? 'Consumo interno' : 'Merma';
+    }
+
+    public function getTypeBadgeAttribute(): string
+    {
+        return $this->isConsumption() ? 'info' : 'danger';
+    }
+
     public function getReasonLabelAttribute(): string
     {
-        return match($this->reason) {
+        if ($this->isConsumption()) {
+            return match ($this->reason) {
+                'autoconsumo' => 'Consumo del dueño',
+                'otro' => 'Consumo del dueño',
+                default => ucfirst($this->reason ?? ''),
+            };
+        }
+
+        return match ($this->reason) {
             'vencido' => 'Vencido',
             'danado' => 'Dañado',
             'otro' => 'Otro',

@@ -18,7 +18,16 @@ class MermaFactory extends Factory
             'user_id' => User::factory(),
             'quantity' => fake()->numberBetween(1, 10),
             'reason' => fake()->randomElement(['vencido', 'danado', 'otro']),
+            'type' => 'merma',
             'notes' => fake()->sentence(),
         ];
+    }
+
+    public function consumption(): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'type' => 'consumo',
+            'reason' => 'otro',
+        ]);
     }
 }

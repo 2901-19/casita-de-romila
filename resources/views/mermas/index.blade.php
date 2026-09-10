@@ -5,7 +5,7 @@
 @section('topbar-actions')
 @can('manage-waste')
 <button class="btn btn-brand" type="button" data-bs-toggle="modal" data-bs-target="#mermaModal">
-    <i class="bi bi-exclamation-triangle me-1"></i> Reportar Merma
+    <i class="bi bi-plus-lg me-1"></i> Registrar Salida
 </button>
 @endcan
 @endsection
@@ -26,6 +26,20 @@
             </div>
         </div>
     </div>
+    <div class="col-6 col-md-4">
+        <div class="card">
+            <div class="card-body py-2">
+                <div class="d-flex align-items-center gap-2">
+                    <div class="kpi-icon info"><i class="bi bi-cup-hot"></i></div>
+                    <div>
+                        <p class="kpi-label mb-0">Consumo interno hoy</p>
+                        <strong class="kpi-value">{{ $totalConsumption }}</strong>
+                        <span class="kpi-trend muted">unidades</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
 </div>
 
 <div class="card">
@@ -35,12 +49,19 @@
         </div>
 
         <form method="GET" class="row g-2 mb-3">
-            <div class="col-12 col-sm-4">
+            <div class="col-12 col-sm-3">
                 <select name="product_id" class="form-select">
                     <option value="">Todos los productos</option>
                     @foreach($products as $p)
                         <option value="{{ $p->id }}" {{ request('product_id') == $p->id ? 'selected' : '' }}>{{ $p->name }}</option>
                     @endforeach
+                </select>
+            </div>
+            <div class="col-6 col-sm-2">
+                <select name="type" class="form-select">
+                    <option value="">Tipo</option>
+                    <option value="merma" {{ request('type') === 'merma' ? 'selected' : '' }}>Merma</option>
+                    <option value="consumo" {{ request('type') === 'consumo' ? 'selected' : '' }}>Consumo interno</option>
                 </select>
             </div>
             <div class="col-6 col-sm-2">
@@ -57,7 +78,7 @@
             <div class="col-6 col-sm-2">
                 <input type="date" name="to" class="form-control" value="{{ request('to') }}">
             </div>
-            <div class="col-6 col-sm-2">
+            <div class="col-6 col-sm-1">
                 <button type="submit" class="btn btn-outline-brand w-100">Filtrar</button>
             </div>
         </form>
@@ -67,6 +88,7 @@
                 <thead>
                     <tr>
                         <th>Fecha</th>
+                        <th>Tipo</th>
                         <th>Producto</th>
                         <th class="text-end">Cantidad</th>
                         <th>Razón</th>
@@ -78,15 +100,16 @@
                     @forelse($mermas as $m)
                     <tr>
                         <td class="text-muted">{{ $m->created_at->format('d/m/Y h:i a') }}</td>
+                        <td><span class="badge-soft {{ $m->type_badge }}">{{ $m->type_label }}</span></td>
                         <td>{{ $m->product->name }}</td>
                         <td class="text-end num text-danger">-{{ $m->quantity }}</td>
-                        <td><span class="badge-soft danger">{{ $m->reason_label }}</span></td>
+                        <td><span class="badge-soft {{ $m->isConsumption() ? 'info' : 'danger' }}">{{ $m->reason_label }}</span></td>
                         <td class="text-muted">{{ $m->notes ?? '—' }}</td>
                         <td class="text-muted">{{ $m->user->name ?? '—' }}</td>
                     </tr>
                     @empty
                     <tr>
-                        <td colspan="6" class="text-center text-muted py-4">No hay mermas registradas.</td>
+                        <td colspan="7" class="text-center text-muted py-4">No hay registros de salidas.</td>
                     </tr>
                     @endforelse
                 </tbody>
@@ -114,10 +137,20 @@
         <div class="modal-dialog modal-dialog-centered">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title"><i class="bi bi-exclamation-triangle me-1"></i> Reportar Merma</h5>
+                    <h5 class="modal-title" id="mermaModalTitle"><i class="bi bi-exclamation-triangle me-1"></i> Reportar Merma</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="mermaType" class="form-label">Tipo de salida *</label>
+                        <select class="form-select @error('type') is-invalid @enderror" id="mermaType" name="type" required>
+                            <option value="merma" {{ old('type', 'merma') === 'merma' ? 'selected' : '' }}>Merma (vencido, dañado)</option>
+                            <option value="consumo" {{ old('type') === 'consumo' ? 'selected' : '' }}>Consumo interno (lo consume el dueño sin pago)</option>
+                        </select>
+                        @error('type')
+                            <div class="invalid-feedback">{{ $message }}</div>
+                        @enderror
+                    </div>
                     <div class="mb-3">
                         <label for="mermaProduct" class="form-label">Producto *</label>
                         <select class="form-select @error('product_id') is-invalid @enderror" id="mermaProduct" name="product_id" required>
@@ -137,12 +170,13 @@
                             <div class="invalid-feedback">{{ $message }}</div>
                         @enderror
                     </div>
-                    <div class="mb-3">
+                    <div class="mb-3" id="mermaReasonWrap">
                         <label for="mermaReason" class="form-label">Razón *</label>
                         <select class="form-select @error('reason') is-invalid @enderror" id="mermaReason" name="reason" required>
-                            <option value="vencido" {{ old('reason') === 'vencido' ? 'selected' : '' }}>Vencido</option>
-                            <option value="danado" {{ old('reason') === 'danado' ? 'selected' : '' }}>Dañado</option>
-                            <option value="otro" {{ old('reason') === 'otro' ? 'selected' : '' }}>Otro</option>
+                            <option value="vencido" {{ old('reason') === 'vencido' ? 'selected' : '' }} data-type="merma">Vencido</option>
+                            <option value="danado" {{ old('reason') === 'danado' ? 'selected' : '' }} data-type="merma">Dañado</option>
+                            <option value="otro" {{ old('reason') === 'otro' ? 'selected' : '' }} data-type="merma">Otro</option>
+                            <option value="otro" data-type="consumo">Consumo del dueño</option>
                         </select>
                         @error('reason')
                             <div class="invalid-feedback">{{ $message }}</div>
@@ -155,7 +189,7 @@
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
-                    <button type="submit" class="btn btn-brand"><i class="bi bi-check2-circle me-1"></i> Registrar Merma</button>
+                    <button type="submit" class="btn btn-brand" id="mermaSubmit"><i class="bi bi-check2-circle me-1"></i> Registrar Merma</button>
                 </div>
             </div>
         </div>
@@ -173,3 +207,37 @@ document.addEventListener('DOMContentLoaded', function() {
 </script>
 @endpush
 @endif
+
+@push('scripts')
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    var typeEl = document.getElementById('mermaType');
+    var reasonEl = document.getElementById('mermaReason');
+    var titleEl = document.getElementById('mermaModalTitle');
+    var submitEl = document.getElementById('mermaSubmit');
+
+    function syncType() {
+        var type = typeEl.value;
+        var options = reasonEl.querySelectorAll('option[data-type]');
+        options.forEach(function (opt) {
+            opt.style.display = opt.getAttribute('data-type') === type ? '' : 'none';
+        });
+        var selected = reasonEl.options[reasonEl.selectedIndex];
+        if (!selected || selected.getAttribute('data-type') !== type) {
+            var first = reasonEl.querySelector('option[data-type="' + type + '"]');
+            if (first) { reasonEl.value = first.value; }
+        }
+        if (type === 'consumo') {
+            titleEl.innerHTML = '<i class="bi bi-cup-hot me-1"></i> Consumo interno (sin pago)';
+            submitEl.innerHTML = '<i class="bi bi-check2-circle me-1"></i> Registrar Consumo';
+        } else {
+            titleEl.innerHTML = '<i class="bi bi-exclamation-triangle me-1"></i> Reportar Merma';
+            submitEl.innerHTML = '<i class="bi bi-check2-circle me-1"></i> Registrar Merma';
+        }
+    }
+
+    typeEl.addEventListener('change', syncType);
+    syncType();
+});
+</script>
+@endpush
