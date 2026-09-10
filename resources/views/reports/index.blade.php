@@ -41,6 +41,17 @@
             </div>
         </div>
     </div>
+    <div class="col-6 col-md-3">
+        <div class="card">
+            <div class="card-body py-2">
+                <p class="kpi-label mb-0">Consumo Interno</p>
+                <div class="d-flex flex-column">
+                    <strong class="kpi-value">$ {{ number_format($totalConsumptionCost, 2, ',', '.') }}</strong>
+                    <small class="text-muted">{{ $totalConsumption }} unidades</small>
+                </div>
+            </div>
+        </div>
+    </div>
 </div>
 
 <div class="row g-3">

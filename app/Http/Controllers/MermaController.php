@@ -14,8 +14,8 @@ class MermaController extends Controller
     {
         $mermas = Merma::with(['product', 'user'])
             ->when($request->product_id, fn($q) => $q->where('product_id', $request->product_id))
-            ->when($request->type === 'merma', fn($q) => $q->where(fn($q2) => $q2->whereNull('type')->orWhere('type', 'merma')))
-            ->when($request->type === 'consumo', fn($q) => $q->where('type', 'consumo'))
+            ->when($request->type === 'merma', fn($q) => $q->mermaType())
+            ->when($request->type === 'consumo', fn($q) => $q->consumption())
             ->when($request->reason, fn($q) => $q->where('reason', $request->reason))
             ->when($request->filled('from'), fn($q) => $q->whereDate('created_at', '>=', $request->from))
             ->when($request->filled('to'), fn($q) => $q->whereDate('created_at', '<=', $request->to))
@@ -24,14 +24,14 @@ class MermaController extends Controller
             ->withQueryString();
 
         $products = Product::where('is_active', true)->orderBy('name')->get();
-        $totalToday = Merma::whereDate('created_at', now()->toDateString())
-            ->where(fn($q) => $q->whereNull('type')->orWhere('type', 'merma'))
+        $totalToday = Merma::mermaType()
+            ->whereDate('created_at', now()->toDateString())
             ->sum('quantity');
-        $totalConsumption = Merma::whereDate('created_at', now()->toDateString())
-            ->where('type', 'consumo')
+        $totalConsumption = Merma::consumption()
+            ->whereDate('created_at', now()->toDateString())
             ->sum('quantity');
-        $totalConsumptionCost = Merma::whereDate('created_at', now()->toDateString())
-            ->where('type', 'consumo')
+        $totalConsumptionCost = Merma::consumption()
+            ->whereDate('created_at', now()->toDateString())
             ->get()
             ->sum(fn($m) => $m->subtotal() ?? 0);
         $selectedType = $request->type === 'consumo' ? 'consumo' : ($request->type === 'merma' ? 'merma' : '');

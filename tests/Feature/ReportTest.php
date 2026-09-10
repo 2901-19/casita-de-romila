@@ -373,6 +373,106 @@ class ReportTest extends TestCase
         $response->assertViewHas('waste', fn ($w) => $w->count() > 0);
     }
 
+    public function test_index_separates_consumption_from_waste(): void
+    {
+        $user = $this->gerente();
+        $this->actingAs($user);
+
+        $product = Product::factory()->create();
+        Merma::factory()->create([
+            'product_id' => $product->id,
+            'user_id' => $user->id,
+            'quantity' => 3,
+            'reason' => 'vencido',
+            'type' => 'merma',
+        ]);
+        Merma::factory()->consumption()->create([
+            'product_id' => $product->id,
+            'user_id' => $user->id,
+            'quantity' => 2,
+            'cost' => 1.00,
+        ]);
+
+        $response = $this->get('/reports');
+
+        $response->assertStatus(200);
+        $response->assertViewHas('totalWaste', fn ($v) => $v == 3);
+        $response->assertViewHas('totalConsumption', fn ($v) => $v == 2);
+        $response->assertViewHas('totalConsumptionCost', fn ($v) => abs((float) $v - 2.0) < 0.01);
+        $response->assertSee('Consumo Interno');
+    }
+
+    public function test_waste_report_separates_consumption(): void
+    {
+        $user = $this->gerente();
+        $this->actingAs($user);
+
+        $product = Product::factory()->create();
+        Merma::factory()->create([
+            'product_id' => $product->id,
+            'user_id' => $user->id,
+            'quantity' => 3,
+            'reason' => 'vencido',
+            'type' => 'merma',
+        ]);
+        Merma::factory()->consumption()->create([
+            'product_id' => $product->id,
+            'user_id' => $user->id,
+            'quantity' => 2,
+            'cost' => 1.50,
+        ]);
+
+        $response = $this->get('/reports/waste');
+
+        $response->assertStatus(200);
+        $response->assertViewHas('waste', function ($w) {
+            return $w->count() === 1 && $w->first()['total_wasted'] === 3;
+        });
+        $response->assertViewHas('consumption', function ($c) {
+            return $c->count() === 1
+                && $c->first()['total_consumed'] === 2
+                && $c->first()['total_cost'] == 3.00;
+        });
+        $response->assertViewHas('byReason', function ($r) {
+            return $r->count() === 1 && $r->first()['reason'] === 'Vencido' && $r->first()['total'] === 3;
+        });
+        $response->assertViewHas('totalWaste', fn ($v) => $v == 3);
+        $response->assertViewHas('totalConsumption', fn ($v) => $v == 2);
+        $response->assertViewHas('totalConsumptionCost', fn ($v) => abs((float) $v - 3.0) < 0.01);
+        $response->assertSee('Consumo Interno por Producto');
+        $response->assertSee('USD 3,00');
+    }
+
+    public function test_waste_export_includes_type_and_cost(): void
+    {
+        $user = $this->gerente();
+        $this->actingAs($user);
+
+        $product = Product::factory()->create();
+        Merma::factory()->create([
+            'product_id' => $product->id,
+            'user_id' => $user->id,
+            'quantity' => 3,
+            'reason' => 'vencido',
+            'type' => 'merma',
+        ]);
+        Merma::factory()->consumption()->create([
+            'product_id' => $product->id,
+            'user_id' => $user->id,
+            'quantity' => 2,
+            'cost' => 3.00,
+        ]);
+
+        $response = $this->get('/reports/waste/csv');
+
+        $response->assertStatus(200);
+        $csv = $response->streamedContent();
+        $this->assertStringContainsString('Merma', $csv);
+        $this->assertStringContainsString('Consumo interno', $csv);
+        $this->assertStringContainsString('6,00', $csv);
+        $this->assertStringContainsString('Vencido', $csv);
+    }
+
     public function test_waste_export_returns_csv(): void
     {
         $this->actingAs($this->gerente());
@@ -599,6 +699,7 @@ class ReportTest extends TestCase
             'product_id' => $product->id,
             'user_id' => $user->id,
             'quantity' => 2,
+            'type' => 'merma',
         ]);
 
         $response = $this->get('/reports/production-vs-sales');
@@ -610,7 +711,55 @@ class ReportTest extends TestCase
                 && $item->produced == 20
                 && $item->sold == 15
                 && $item->wasted == 2
+                && $item->consumed == 0
                 && $item->efficiency == 75.0;
+        });
+    }
+
+    public function test_production_vs_sales_excludes_consumption_from_wasted(): void
+    {
+        $user = $this->gerente();
+        $this->actingAs($user);
+
+        $product = Product::factory()->produccion()->create();
+
+        Production::factory()->create([
+            'product_id' => $product->id,
+            'user_id' => $user->id,
+            'quantity' => 10,
+        ]);
+
+        $sale = Sale::factory()->create([
+            'user_id' => $user->id,
+            'status' => 'completada',
+        ]);
+        SaleItem::factory()->create([
+            'sale_id' => $sale->id,
+            'product_id' => $product->id,
+            'quantity' => 7,
+        ]);
+
+        Merma::factory()->create([
+            'product_id' => $product->id,
+            'user_id' => $user->id,
+            'quantity' => 1,
+            'type' => 'merma',
+        ]);
+        Merma::factory()->consumption()->create([
+            'product_id' => $product->id,
+            'user_id' => $user->id,
+            'quantity' => 2,
+            'cost' => 1.00,
+        ]);
+
+        $response = $this->get('/reports/production-vs-sales');
+
+        $response->assertStatus(200);
+        $response->assertViewHas('comparison', function ($c) use ($product) {
+            $item = $c->firstWhere('id', $product->id);
+            return $item
+                && $item->wasted == 1
+                && $item->consumed == 2;
         });
     }
 

@@ -14,7 +14,7 @@
 @include('reports._date-filter', ['from' => $from, 'to' => $to, 'route' => 'reports.production-vs-sales'])
 
 <div class="row g-3 mb-3">
-    <div class="col-4">
+    <div class="col-6 col-md-3">
         <div class="card">
             <div class="card-body py-2">
                 <p class="kpi-label mb-0">Total Producido</p>
@@ -22,7 +22,7 @@
             </div>
         </div>
     </div>
-    <div class="col-4">
+    <div class="col-6 col-md-3">
         <div class="card">
             <div class="card-body py-2">
                 <p class="kpi-label mb-0">Total Vendido</p>
@@ -30,11 +30,19 @@
             </div>
         </div>
     </div>
-    <div class="col-4">
+    <div class="col-6 col-md-3">
         <div class="card">
             <div class="card-body py-2">
                 <p class="kpi-label mb-0">Total Desperdiciado</p>
                 <strong class="kpi-value text-danger">{{ $comparison->sum('wasted') }}</strong>
+            </div>
+        </div>
+    </div>
+    <div class="col-6 col-md-3">
+        <div class="card">
+            <div class="card-body py-2">
+                <p class="kpi-label mb-0">Total Consumido</p>
+                <strong class="kpi-value">{{ $comparison->sum('consumed') }}</strong>
             </div>
         </div>
     </div>
@@ -51,6 +59,7 @@
                         <th class="text-end">Producido</th>
                         <th class="text-end">Vendido</th>
                         <th class="text-end">Desperdiciado</th>
+                        <th class="text-end">Consumido</th>
                         <th class="text-end">Eficiencia %</th>
                     </tr>
                 </thead>
@@ -62,10 +71,11 @@
                         <td class="text-end num">{{ $p->produced }}</td>
                         <td class="text-end num">{{ $p->sold }}</td>
                         <td class="text-end num {{ $p->wasted > 0 ? 'text-danger' : '' }}">{{ $p->wasted }}</td>
+                        <td class="text-end num {{ $p->consumed > 0 ? 'text-warning' : '' }}">{{ $p->consumed }}</td>
                         <td class="text-end num {{ $p->efficiency >= 80 ? 'text-success' : ($p->efficiency >= 50 ? 'text-warning' : 'text-danger') }}">{{ $p->efficiency }}%</td>
                     </tr>
                     @empty
-                    <tr><td colspan="6" class="text-center text-muted py-4">Sin datos de produccion en este periodo</td></tr>
+                    <tr><td colspan="7" class="text-center text-muted py-4">Sin datos de produccion en este periodo</td></tr>
                     @endforelse
                 </tbody>
             </table>

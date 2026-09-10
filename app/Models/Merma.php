@@ -1,6 +1,7 @@
 <?php
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -31,6 +32,22 @@ class Merma extends Model
     public function isConsumption(): bool
     {
         return $this->type === 'consumo';
+    }
+
+    public function scopeMermaType(Builder $query): Builder
+    {
+        return $query->where(fn (Builder $q) => $q->whereNull('type')->orWhere('type', 'merma'));
+    }
+
+    public function scopeConsumption(Builder $query): Builder
+    {
+        return $query->where('type', 'consumo');
+    }
+
+    public function scopeInRange(Builder $query, string $from, string $to): Builder
+    {
+        return $query->whereDate('created_at', '>=', $from)
+            ->whereDate('created_at', '<=', $to);
     }
 
     public function subtotal(): ?float

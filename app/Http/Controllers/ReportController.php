@@ -67,11 +67,20 @@ class ReportController extends Controller
         $pendingCreditUsd = (float) $pendingCredit;
         $pendingCreditBs = round($pendingCreditUsd * $this->currentRate(), 2);
 
-        $totalWaste = Merma::whereDate('created_at', '>=', $from)
-            ->whereDate('created_at', '<=', $to)
+        $totalWaste = Merma::mermaType()
+            ->inRange($from, $to)
             ->sum('quantity');
 
-        return view('reports.index', compact('monthRevenue', 'activeProducts', 'pendingCreditUsd', 'pendingCreditBs', 'totalWaste', 'from', 'to'));
+        $totalConsumption = Merma::consumption()
+            ->inRange($from, $to)
+            ->sum('quantity');
+
+        $totalConsumptionCost = (float) Merma::consumption()
+            ->inRange($from, $to)
+            ->selectRaw('COALESCE(SUM(quantity * COALESCE(cost, 0)), 0) as total')
+            ->value('total');
+
+        return view('reports.index', compact('monthRevenue', 'activeProducts', 'pendingCreditUsd', 'pendingCreditBs', 'totalWaste', 'totalConsumption', 'totalConsumptionCost', 'from', 'to'));
     }
 
     // ─── Ventas ─────────────────────────────────────────────
@@ -372,9 +381,10 @@ class ReportController extends Controller
     {
         [$from, $to] = $this->dateRange($request);
 
-        $waste = Merma::with('product')
-            ->whereDate('created_at', '>=', $from)
-            ->whereDate('created_at', '<=', $to)
+        $reasonLabels = ['vencido' => 'Vencido', 'danado' => 'Dañado', 'otro' => 'Otro'];
+
+        $waste = Merma::mermaType()->with('product')
+            ->inRange($from, $to)
             ->selectRaw('product_id, SUM(quantity) as total_wasted, MAX(created_at) as last_date')
             ->groupBy('product_id')
             ->orderByDesc('total_wasted')
@@ -388,16 +398,38 @@ class ReportController extends Controller
                 ];
             });
 
-        $byReason = Merma::whereDate('created_at', '>=', $from)
-            ->whereDate('created_at', '<=', $to)
+        $consumption = Merma::consumption()->with('product')
+            ->inRange($from, $to)
+            ->selectRaw('product_id, SUM(quantity) as total_consumed, COALESCE(SUM(quantity * COALESCE(cost, 0)), 0) as total_cost, MAX(created_at) as last_date')
+            ->groupBy('product_id')
+            ->orderByDesc('total_consumed')
+            ->get()
+            ->map(function ($w) {
+                $w->last_date = $w->last_date ? \Carbon\Carbon::parse($w->last_date) : null;
+                return [
+                    'product' => $w->product,
+                    'total_consumed' => (int) $w->total_consumed,
+                    'total_cost' => round((float) $w->total_cost, 2),
+                    'last_date' => $w->last_date,
+                ];
+            });
+
+        $byReason = Merma::mermaType()
+            ->inRange($from, $to)
             ->selectRaw('reason, SUM(quantity) as total')
             ->groupBy('reason')
             ->orderByDesc('total')
-            ->get();
+            ->get()
+            ->map(fn ($r) => [
+                'reason' => $reasonLabels[$r->reason] ?? ucfirst($r->reason ?? ''),
+                'total' => (int) $r->total,
+            ]);
 
         $totalWaste = $waste->sum('total_wasted');
+        $totalConsumption = $consumption->sum('total_consumed');
+        $totalConsumptionCost = round($consumption->sum('total_cost'), 2);
 
-        return view('reports.waste', compact('waste', 'byReason', 'totalWaste', 'from', 'to'));
+        return view('reports.waste', compact('waste', 'consumption', 'byReason', 'totalWaste', 'totalConsumption', 'totalConsumptionCost', 'from', 'to'));
     }
 
     public function wasteExport(Request $request)
@@ -405,24 +437,25 @@ class ReportController extends Controller
         [$from, $to] = $this->dateRange($request);
 
         $waste = Merma::with('product')
-            ->whereDate('created_at', '>=', $from)
-            ->whereDate('created_at', '<=', $to)
-            ->selectRaw('product_id, reason, SUM(quantity) as total_wasted, MAX(created_at) as last_date')
-            ->groupBy('product_id', 'reason')
-            ->orderByDesc('total_wasted')
+            ->inRange($from, $to)
+            ->selectRaw('product_id, type, reason, SUM(quantity) as total_out, COALESCE(SUM(quantity * COALESCE(cost, 0)), 0) as total_cost, MAX(created_at) as last_date')
+            ->groupBy('product_id', 'type', 'reason')
+            ->orderByDesc('total_out')
             ->get();
 
-        $reasonLabels = ['vencido' => 'Vencido', 'danado' => 'Danado', 'otro' => 'Otro'];
+        $reasonLabels = ['vencido' => 'Vencido', 'danado' => 'Dañado', 'otro' => 'Otro'];
 
         $rows = $waste->map(fn ($w) => [
             $w->product?->name ?? '—',
-            $w->total_wasted,
+            $w->type === 'consumo' ? 'Consumo interno' : 'Merma',
+            $w->total_out,
+            $w->type === 'consumo' ? number_format((float) $w->total_cost, 2, ',', '.') : '—',
             $reasonLabels[$w->reason] ?? ucfirst($w->reason ?? ''),
             $w->last_date ? \Carbon\Carbon::parse($w->last_date)->format('d/m/Y H:i') : '—',
         ]);
 
         return $this->exportCsv(
-            ['Producto', 'Cantidad', 'Motivo', 'Fecha ultima merma'],
+            ['Producto', 'Tipo', 'Cantidad', 'Costo USD', 'Motivo', 'Fecha ultima'],
             $rows,
             "mermas_{$from}_{$to}.csv"
         );
@@ -669,11 +702,12 @@ class ReportController extends Controller
             $p->produced,
             $p->sold,
             $p->wasted,
+            $p->consumed,
             "{$p->efficiency}%",
         ]);
 
         return $this->exportCsv(
-            ['Producto', 'Categoria', 'Producido', 'Vendido', 'Desperdiciado', 'Eficiencia %'],
+            ['Producto', 'Categoria', 'Producido', 'Vendido', 'Desperdiciado', 'Consumido', 'Eficiencia %'],
             $rows,
             "produccion_vs_venta_{$from}_{$to}.csv"
         );
@@ -687,11 +721,17 @@ class ReportController extends Controller
             ->groupBy('product_id')
             ->pluck('produced', 'product_id');
 
-        $wasted = Merma::whereDate('created_at', '>=', $from)
-            ->whereDate('created_at', '<=', $to)
+        $wasted = Merma::mermaType()
+            ->inRange($from, $to)
             ->selectRaw('product_id, SUM(quantity) as wasted')
             ->groupBy('product_id')
             ->pluck('wasted', 'product_id');
+
+        $consumed = Merma::consumption()
+            ->inRange($from, $to)
+            ->selectRaw('product_id, SUM(quantity) as consumed')
+            ->groupBy('product_id')
+            ->pluck('consumed', 'product_id');
 
         $sold = SaleItem::whereHas('sale', fn ($q) => $q->where('status', 'completada')
             ->whereDate('created_at', '>=', $from)
@@ -720,6 +760,7 @@ class ReportController extends Controller
                 'produced' => (int) ($produced->get($p->id, 0)),
                 'sold' => (int) ($sold->get($p->id, 0) ?? 0),
                 'wasted' => (int) ($wasted->get($p->id, 0)),
+                'consumed' => (int) ($consumed->get($p->id, 0)),
             ];
         }
 
@@ -732,6 +773,7 @@ class ReportController extends Controller
                     'produced' => 0,
                     'sold' => (int) ($sold->get($p->id, 0)),
                     'wasted' => 0,
+                    'consumed' => (int) ($consumed->get($p->id, 0)),
                 ];
             } else {
                 $byId[$p->id]['sold'] = (int) ($sold->get($p->id, 0));
@@ -745,6 +787,7 @@ class ReportController extends Controller
                 'produced' => 0,
                 'sold' => (int) ($comboSold->get($combo->id, 0)),
                 'wasted' => 0,
+                'consumed' => 0,
             ];
         }
 
