@@ -8,12 +8,13 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 class Merma extends Model
 {
     use HasFactory;
-    protected $fillable = ['product_id', 'user_id', 'quantity', 'reason', 'type', 'notes'];
+    protected $fillable = ['product_id', 'user_id', 'quantity', 'cost', 'reason', 'type', 'notes'];
 
     protected function casts(): array
     {
         return [
             'quantity' => 'integer',
+            'cost' => 'decimal:2',
         ];
     }
 
@@ -30,6 +31,15 @@ class Merma extends Model
     public function isConsumption(): bool
     {
         return $this->type === 'consumo';
+    }
+
+    public function subtotal(): ?float
+    {
+        if (! $this->isConsumption() || $this->cost === null) {
+            return null;
+        }
+
+        return round((float) $this->quantity * (float) $this->cost, 2);
     }
 
     public function getTypeLabelAttribute(): string

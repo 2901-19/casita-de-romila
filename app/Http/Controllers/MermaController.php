@@ -30,52 +30,65 @@ class MermaController extends Controller
         $totalConsumption = Merma::whereDate('created_at', now()->toDateString())
             ->where('type', 'consumo')
             ->sum('quantity');
+        $totalConsumptionCost = Merma::whereDate('created_at', now()->toDateString())
+            ->where('type', 'consumo')
+            ->get()
+            ->sum(fn($m) => $m->subtotal() ?? 0);
         $selectedType = $request->type === 'consumo' ? 'consumo' : ($request->type === 'merma' ? 'merma' : '');
 
-        return view('mermas.index', compact('mermas', 'products', 'totalToday', 'totalConsumption', 'selectedType'));
+        return view('mermas.index', compact('mermas', 'products', 'totalToday', 'totalConsumption', 'totalConsumptionCost', 'selectedType'));
     }
 
     public function store(StoreMermaRequest $request)
     {
         $data = $request->validated();
+        $isConsumption = $data['type'] === 'consumo';
 
-        $product = Product::find($data['product_id']);
-        if (! $product) {
-            return back()->withErrors(['product_id' => 'Producto no encontrado.'])->withInput();
+        $products = Product::whereIn('id', collect($data['lines'])->pluck('product_id'))->get()->keyBy('id');
+
+        foreach ($data['lines'] as $i => $line) {
+            $product = $products->get($line['product_id']);
+            if (! $product) {
+                return back()->withErrors(["lines.{$i}.product_id" => 'Producto no encontrado.'])->withInput();
+            }
+            if ($product->stock_current < $line['quantity']) {
+                return back()->withErrors([
+                    "lines.{$i}.quantity" => "Producto \"{$product->name}\": stock insuficiente. Disponible: {$product->stock_current}",
+                ])->withInput();
+            }
         }
-        if ($product->stock_current < $data['quantity']) {
-            return back()->withErrors([
-                'quantity' => "Stock insuficiente. Disponible: {$product->stock_current}",
-            ])->withInput();
-        }
 
-        DB::transaction(function () use ($data, $request, $product) {
-            $merma = Merma::create([
-                'product_id' => $data['product_id'],
-                'user_id' => $request->user()->id,
-                'quantity' => $data['quantity'],
-                'reason' => $data['reason'],
-                'type' => $data['type'],
-                'notes' => $data['notes'] ?? null,
-            ]);
+        DB::transaction(function () use ($data, $request, $products, $isConsumption) {
+            foreach ($data['lines'] as $line) {
+                $product = $products->get($line['product_id']);
+                $cost = $isConsumption ? (float) ($line['cost'] ?? $product->cost_price) : null;
 
-            $product->decrement('stock_current', $data['quantity']);
+                Merma::create([
+                    'product_id' => $line['product_id'],
+                    'user_id' => $request->user()->id,
+                    'quantity' => $line['quantity'],
+                    'cost' => $cost,
+                    'reason' => $data['reason'],
+                    'type' => $data['type'],
+                    'notes' => $data['notes'] ?? null,
+                ]);
 
-            $isConsumption = $data['type'] === 'consumo';
+                $product->decrement('stock_current', $line['quantity']);
 
-            \App\Models\InventoryAdjustment::create([
-                'product_id' => $data['product_id'],
-                'user_id' => $request->user()->id,
-                'type' => 'salida',
-                'quantity' => $data['quantity'],
-                'reason' => 'merma',
-                'notes' => ($isConsumption ? 'Consumo interno: ' : 'Merma: ') . ($data['reason'] ?? ''),
-            ]);
+                \App\Models\InventoryAdjustment::create([
+                    'product_id' => $line['product_id'],
+                    'user_id' => $request->user()->id,
+                    'type' => 'salida',
+                    'quantity' => $line['quantity'],
+                    'reason' => 'merma',
+                    'notes' => ($isConsumption ? 'Consumo interno: ' : 'Merma: ') . ($data['reason'] ?? ''),
+                ]);
+            }
         });
 
         return redirect()
             ->route('mermas.index')
-            ->with('success', $data['type'] === 'consumo'
+            ->with('success', $isConsumption
                 ? 'Consumo interno registrado. Stock actualizado.'
                 : 'Merma registrada. Stock actualizado.');
     }

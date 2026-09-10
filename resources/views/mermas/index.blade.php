@@ -34,7 +34,7 @@
                     <div>
                         <p class="kpi-label mb-0">Consumo interno hoy</p>
                         <strong class="kpi-value">{{ $totalConsumption }}</strong>
-                        <span class="kpi-trend muted">unidades</span>
+                        <span class="kpi-trend muted">unidades · USD {{ number_format($totalConsumptionCost, 2, ',', '.') }} en costo</span>
                     </div>
                 </div>
             </div>
@@ -45,7 +45,7 @@
 <div class="card">
     <div class="card-body">
         <div class="d-flex justify-content-between align-items-center mb-3">
-            <h2 class="card-title">Registro de Mermas</h2>
+            <h2 class="card-title">Registro de Mermas y Consumo</h2>
         </div>
 
         <form method="GET" class="row g-2 mb-3">
@@ -91,6 +91,7 @@
                         <th>Tipo</th>
                         <th>Producto</th>
                         <th class="text-end">Cantidad</th>
+                        <th class="text-end">Costo USD</th>
                         <th>Razón</th>
                         <th>Notas</th>
                         <th>Usuario</th>
@@ -103,13 +104,20 @@
                         <td><span class="badge-soft {{ $m->type_badge }}">{{ $m->type_label }}</span></td>
                         <td>{{ $m->product->name }}</td>
                         <td class="text-end num text-danger">-{{ $m->quantity }}</td>
+                        <td class="text-end num">
+                            @if($m->isConsumption() && $m->subtotal() !== null)
+                                USD {{ number_format($m->subtotal(), 2, ',', '.') }}
+                            @else
+                                <span class="text-muted">—</span>
+                            @endif
+                        </td>
                         <td><span class="badge-soft {{ $m->isConsumption() ? 'info' : 'danger' }}">{{ $m->reason_label }}</span></td>
                         <td class="text-muted">{{ $m->notes ?? '—' }}</td>
                         <td class="text-muted">{{ $m->user->name ?? '—' }}</td>
                     </tr>
                     @empty
                     <tr>
-                        <td colspan="7" class="text-center text-muted py-4">No hay registros de salidas.</td>
+                        <td colspan="8" class="text-center text-muted py-4">No hay registros de salidas.</td>
                     </tr>
                     @endforelse
                 </tbody>
@@ -131,10 +139,10 @@
 
 @section('modals')
 @can('manage-waste')
-<form method="POST" action="{{ route('mermas.store') }}">
+<form method="POST" action="{{ route('mermas.store') }}" id="mermaForm">
     @csrf
     <div class="modal fade" id="mermaModal" tabindex="-1" aria-hidden="true">
-        <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-dialog modal-dialog-centered modal-lg">
             <div class="modal-content">
                 <div class="modal-header">
                     <h5 class="modal-title" id="mermaModalTitle"><i class="bi bi-exclamation-triangle me-1"></i> Reportar Merma</h5>
@@ -151,26 +159,59 @@
                             <div class="invalid-feedback">{{ $message }}</div>
                         @enderror
                     </div>
-                    <div class="mb-3">
-                        <label for="mermaProduct" class="form-label">Producto *</label>
-                        <select class="form-select @error('product_id') is-invalid @enderror" id="mermaProduct" name="product_id" required>
-                            <option value="">Seleccionar producto</option>
-                            @foreach($products as $p)
-                                <option value="{{ $p->id }}" {{ old('product_id') == $p->id ? 'selected' : '' }}>{{ $p->name }} (Stock: {{ $p->stock_current }})</option>
-                            @endforeach
-                        </select>
-                        @error('product_id')
-                            <div class="invalid-feedback">{{ $message }}</div>
+
+                    <div class="border rounded p-3 form-zone mb-3">
+                        <label class="form-label">Productos a registrar</label>
+                        <div class="row g-2 mb-2">
+                            <div class="col-12 col-sm-6">
+                                <select id="mermaProduct" class="form-select">
+                                    <option value="">Seleccionar producto...</option>
+                                    @foreach($products as $p)
+                                        <option value="{{ $p->id }}"
+                                                data-name="{{ $p->name }}"
+                                                data-cost="{{ number_format((float) $p->cost_price, 2, '.', '') }}">
+                                            {{ $p->name }} (Stock: {{ $p->stock_current }})
+                                        </option>
+                                    @endforeach
+                                </select>
+                            </div>
+                            <div class="col-4 col-sm-2">
+                                <input type="number" id="mermaQuantity" class="form-control" min="1" value="1" placeholder="Cant.">
+                            </div>
+                            <div class="col-4 col-sm-2 d-none" id="mermaCostWrap">
+                                <input type="number" id="mermaCost" class="form-control" min="0" step="0.01" value="0" placeholder="Costo USD">
+                            </div>
+                            <div class="col-4 col-sm-2">
+                                <button type="button" class="btn btn-outline-brand w-100" id="mermaAddRow">
+                                    <i class="bi bi-plus-lg"></i>
+                                </button>
+                            </div>
+                        </div>
+                        @error('lines')
+                            <div class="text-danger small mt-1">{{ $message }}</div>
                         @enderror
+
+                        <div class="table-responsive">
+                            <table class="table table-sm align-middle mb-1" id="mermaLinesTable">
+                                <thead>
+                                    <tr>
+                                        <th>Producto</th>
+                                        <th style="width:110px;">Cantidad</th>
+                                        <th style="width:130px;" class="cost-col">Costo USD</th>
+                                        <th class="text-end cost-col">Subtotal</th>
+                                        <th style="width:40px;"></th>
+                                    </tr>
+                                </thead>
+                                <tbody id="mermaLinesBody"></tbody>
+                            </table>
+                        </div>
+                        <div class="d-flex justify-content-between small fw-semibold">
+                            <span id="mermaUnitsLabel">0 unidades</span>
+                            <span id="mermaTotalLabel" class="cost-col">USD 0.00</span>
+                        </div>
                     </div>
+
                     <div class="mb-3">
-                        <label for="mermaQuantity" class="form-label">Cantidad *</label>
-                        <input type="number" class="form-control @error('quantity') is-invalid @enderror" id="mermaQuantity" name="quantity" min="1" value="{{ old('quantity') }}" required>
-                        @error('quantity')
-                            <div class="invalid-feedback">{{ $message }}</div>
-                        @enderror
-                    </div>
-                    <div class="mb-3" id="mermaReasonWrap">
                         <label for="mermaReason" class="form-label">Razón *</label>
                         <select class="form-select @error('reason') is-invalid @enderror" id="mermaReason" name="reason" required>
                             <option value="vencido" {{ old('reason') === 'vencido' ? 'selected' : '' }} data-type="merma">Vencido</option>
@@ -215,6 +256,69 @@ document.addEventListener('DOMContentLoaded', function () {
     var reasonEl = document.getElementById('mermaReason');
     var titleEl = document.getElementById('mermaModalTitle');
     var submitEl = document.getElementById('mermaSubmit');
+    var productSelect = document.getElementById('mermaProduct');
+    var qtyInput = document.getElementById('mermaQuantity');
+    var costInput = document.getElementById('mermaCost');
+    var costWrap = document.getElementById('mermaCostWrap');
+    var linesBody = document.getElementById('mermaLinesBody');
+    var unitsLabel = document.getElementById('mermaUnitsLabel');
+    var totalLabel = document.getElementById('mermaTotalLabel');
+    var addBtn = document.getElementById('mermaAddRow');
+    var mermaForm = document.getElementById('mermaForm');
+    var rows = {};
+
+    function isConsumption() { return typeEl.value === 'consumo'; }
+
+    function syncCostColumn() {
+        costWrap.classList.toggle('d-none', !isConsumption());
+        var show = isConsumption();
+        document.querySelectorAll('.cost-col').forEach(function (el) { el.classList.toggle('d-none', !show); });
+    }
+
+    function fmt(n) {
+        return n.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+
+    function renderRows() {
+        linesBody.innerHTML = '';
+        Object.keys(rows).forEach(function (id, i) {
+            var r = rows[id];
+            var subtotal = r.quantity * r.cost;
+            var tr = document.createElement('tr');
+            tr.innerHTML =
+                '<td>' +
+                    '<span class="fw-semibold">' + r.name + '</span>' +
+                    '<input type="hidden" name="lines[' + i + '][product_id]" value="' + id + '">' +
+                '</td>' +
+                '<td>' +
+                    '<input type="number" class="form-control form-control-sm" min="1" ' +
+                           'name="lines[' + i + '][quantity]" value="' + r.quantity + '" data-id="' + id + '">' +
+                '</td>' +
+                '<td class="cost-col">' +
+                    '<input type="number" class="form-control form-control-sm" min="0" step="0.01" ' +
+                           'name="lines[' + i + '][cost]" value="' + r.cost + '" data-id="' + id + '" data-cost> ' +
+                '</td>' +
+                '<td class="text-end num cost-col">USD ' + fmt(subtotal) + '</td>' +
+                '<td>' +
+                    '<button type="button" class="btn btn-outline-danger btn-sm remove-line" data-id="' + id + '" aria-label="Quitar">' +
+                        '<i class="bi bi-x"></i>' +
+                    '</button>' +
+                '</td>';
+            linesBody.appendChild(tr);
+        });
+        syncCostColumn();
+        updateTotals();
+    }
+
+    function updateTotals() {
+        var units = 0, total = 0;
+        Object.keys(rows).forEach(function (id) {
+            units += rows[id].quantity;
+            total += rows[id].quantity * rows[id].cost;
+        });
+        unitsLabel.textContent = units + (units === 1 ? ' unidad' : ' unidades');
+        totalLabel.textContent = 'USD ' + fmt(total);
+    }
 
     function syncType() {
         var type = typeEl.value;
@@ -234,9 +338,70 @@ document.addEventListener('DOMContentLoaded', function () {
             titleEl.innerHTML = '<i class="bi bi-exclamation-triangle me-1"></i> Reportar Merma';
             submitEl.innerHTML = '<i class="bi bi-check2-circle me-1"></i> Registrar Merma';
         }
+        renderRows();
     }
 
+    addBtn.addEventListener('click', function () {
+        var option = productSelect.options[productSelect.selectedIndex];
+        if (!option.value) { productSelect.focus(); return; }
+        var id = option.value;
+        if (rows[id]) {
+            rows[id].quantity += parseInt(qtyInput.value, 10) || 1;
+        } else {
+            rows[id] = {
+                name: option.getAttribute('data-name'),
+                cost: isConsumption() ? (parseFloat(costInput.value) || 0) : 0,
+                quantity: parseInt(qtyInput.value, 10) || 1
+            };
+        }
+        renderRows();
+        productSelect.value = '';
+        qtyInput.value = 1;
+        costInput.value = isConsumption() ? (parseFloat(option.getAttribute('data-cost')) || 0) : 0;
+    });
+
+    linesBody.addEventListener('click', function (e) {
+        var btn = e.target.closest('.remove-line');
+        if (!btn) return;
+        delete rows[btn.getAttribute('data-id')];
+        renderRows();
+    });
+
+    linesBody.addEventListener('input', function (e) {
+        var input = e.target;
+        if (!input.hasAttribute('data-id')) return;
+        var id = input.getAttribute('data-id');
+        if (!rows[id]) return;
+        if (input.hasAttribute('data-cost')) {
+            rows[id].cost = parseFloat(input.value) || 0;
+        } else {
+            rows[id].quantity = parseInt(input.value, 10) || 0;
+        }
+        updateTotals();
+    });
+
+    typeEl.addEventListener('click', function () {
+        if (isConsumption() && parseFloat(costInput.value) === 0) {
+            costInput.value = productSelect.options[productSelect.selectedIndex]?.getAttribute('data-cost') || 0;
+        }
+    });
+
     typeEl.addEventListener('change', syncType);
+    productSelect.addEventListener('change', function () {
+        var option = productSelect.options[productSelect.selectedIndex];
+        costInput.value = option && option.getAttribute('data-cost') ? option.getAttribute('data-cost') : 0;
+    });
+    qtyInput.addEventListener('change', function () {
+        if ((parseInt(qtyInput.value, 10) || 0) < 1) qtyInput.value = 1;
+    });
+
+    mermaForm.addEventListener('submit', function (e) {
+        if (Object.keys(rows).length === 0) {
+            e.preventDefault();
+            alert('Agregue al menos un producto.');
+        }
+    });
+
     syncType();
 });
 </script>

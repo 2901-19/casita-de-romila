@@ -17,6 +17,7 @@ class MermaFactory extends Factory
             'product_id' => Product::factory(),
             'user_id' => User::factory(),
             'quantity' => fake()->numberBetween(1, 10),
+            'cost' => fake()->randomFloat(2, 1, 20),
             'reason' => fake()->randomElement(['vencido', 'danado', 'otro']),
             'type' => 'merma',
             'notes' => fake()->sentence(),
