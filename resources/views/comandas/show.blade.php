@@ -42,6 +42,7 @@
                         Bs <span class="num">{{ number_format($comanda->total_bs, 2, ',', '.') }}</span>
                     </h2>
                     <small class="text-muted">≈ ${{ number_format($comanda->total_usd, 2, ',', '.') }} USD</small>
+                    <small class="text-muted d-block mt-1"><i class="bi bi-tag me-1"></i>Bs del día de la comanda</small>
                 </div>
             </div>
 
@@ -74,22 +75,25 @@
     @php($isEntregada = $comanda->status === 'entregada')
     <div class="card comanda-stepper-card mb-3">
         <div class="card-body py-3">
-            <ol class="stepper">
-                <li class="step {{ $isCobrada || $isEntregada || $allDelivered ? 'done' : 'active' }}">
+            <ol class="stepper" aria-label="Progreso de la comanda">
+                <li class="step {{ $isCobrada || $isEntregada || $allDelivered ? 'done' : 'active' }}"
+                    @if(!$isCobrada && !$isEntregada && !$allDelivered) aria-current="step" @endif>
                     <span class="step-dot"><i class="bi bi-journal-text"></i></span>
                     <div class="step-body">
                         <span class="step-label">Montada</span>
                         <span class="step-sub">Comanda creada</span>
                     </div>
                 </li>
-                <li class="step {{ $isCobrada || $isEntregada ? 'done' : ($allDelivered ? 'active' : '') }}">
+                <li class="step {{ $isCobrada || $isEntregada ? 'done' : ($allDelivered ? 'active' : '') }}"
+                    @if(!$isCobrada && !$isEntregada && $allDelivered) aria-current="step" @endif>
                     <span class="step-dot"><i class="bi bi-basket"></i></span>
                     <div class="step-body">
                         <span class="step-label">Entregada</span>
                         <span class="step-sub">Seguimiento de entrega</span>
                     </div>
                 </li>
-                <li class="step {{ $isCobrada ? 'done' : '' }}">
+                <li class="step {{ $isCobrada ? 'done' : '' }}"
+                    @if($isCobrada) aria-current="step" @endif>
                     <span class="step-dot"><i class="bi bi-cash-coin"></i></span>
                     <div class="step-body">
                         <span class="step-label">Cobrada</span>
@@ -217,6 +221,18 @@
                 <button type="button" class="btn btn-brand" data-bs-toggle="modal" data-bs-target="#closeModal">
                     <i class="bi bi-check2-circle me-1"></i> Cerrar comanda
                 </button>
+                @endif
+                @if($canEdit)
+                <form method="POST" action="{{ route('comandas.destroy', $comanda) }}"
+                      data-confirm-title="¿Eliminar la comanda #{{ $comanda->comanda_number }}?"
+                      data-confirm-text="Esta acción no se puede deshacer."
+                      data-confirm-button="Sí, eliminar">
+                    @csrf
+                    @method('DELETE')
+                    <button type="submit" class="btn btn-outline-danger">
+                        <i class="bi bi-trash me-1"></i> Eliminar
+                    </button>
+                </form>
                 @endif
             </div>
         </div>
@@ -486,10 +502,10 @@ document.addEventListener('alpine:init', function () {
                 {
                     key: 'i{{ $item->id }}',
                     product_id: '{{ $item->combo_id ? 'combo_' . $item->combo_id : $item->product_id }}',
-                    name: {!! json_encode($item->product_name) !!},
+                    name: @json($item->product_name),
                     quantity: {{ $item->quantity }},
-                    order_type: {!! json_encode($item->order_type) !!},
-                    note: {!! json_encode($item->note) !!},
+                    order_type: @json($item->order_type),
+                    note: @json($item->note),
                     collected: {{ $item->collected ? 'true' : 'false' }},
                     is_demanda: {{ ($item->combo_id || !$item->product_id) ? 'false' : (($products->firstWhere('id', $item->product_id)?->control_type === 'demanda') ? 'true' : 'false') }},
                 },
@@ -499,14 +515,14 @@ document.addEventListener('alpine:init', function () {
             get products() {
                 return [
                     @foreach($products as $p)
-                        { id: {{ $p->id }}, name: {!! json_encode($p->name) !!}, sale_price: {{ number_format(\App\Support\Pricing::bs((float) $p->sale_price, $rate, $p->round_bs), 2, '.', '') }}, category_id: {{ $p->category_id ?? 'null' }}, image: {!! json_encode($p->image ? asset('storage/'.$p->image) : '') !!}, is_demanda: {{ $p->control_type === 'demanda' ? 'true' : 'false' }} },
+                        { id: {{ $p->id }}, name: @json($p->name), sale_price: {{ number_format(\App\Support\Pricing::bs((float) $p->sale_price, $rate, $p->round_bs), 2, '.', '') }}, category_id: {{ $p->category_id ?? 'null' }}, image: @json($p->image ? asset('storage/'.$p->image) : ''), is_demanda: {{ $p->control_type === 'demanda' ? 'true' : 'false' }} },
                     @endforeach
                 ];
             },
             get combos() {
                 return [
                     @foreach($combos as $combo)
-                        { id: 'combo_{{ $combo->id }}', name: {!! json_encode($combo->name) !!}, image: {!! json_encode($combo->image ? asset('storage/'.$combo->image) : '') !!}, is_combo: true, is_demanda: false },
+                        { id: 'combo_{{ $combo->id }}', name: @json($combo->name), image: @json($combo->image ? asset('storage/'.$combo->image) : ''), is_combo: true, is_demanda: false },
                     @endforeach
                 ];
             },

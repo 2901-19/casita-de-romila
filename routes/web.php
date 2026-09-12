@@ -12,14 +12,14 @@ use App\Http\Controllers\LanzadorController;
 use App\Http\Controllers\MermaController;
 use App\Http\Controllers\PosController;
 use App\Http\Controllers\ProductController;
-use App\Http\Controllers\RoleController;
-use App\Http\Controllers\SalesController;
 use App\Http\Controllers\ProductionController;
 use App\Http\Controllers\ReportController;
+use App\Http\Controllers\RoleController;
+use App\Http\Controllers\SalesController;
 use App\Http\Controllers\UserController;
 use Illuminate\Support\Facades\Route;
 
-Route::get('/', fn() => redirect()->route('dashboard'))->middleware('auth');
+Route::get('/', fn () => redirect()->route('dashboard'))->middleware('auth');
 
 Route::middleware('guest')->group(function () {
     Route::get('login', [LoginController::class, 'showLoginForm'])->name('login');
@@ -87,6 +87,7 @@ Route::middleware('auth')->group(function () {
     Route::patch('comandas/{comanda}/items/{item}/entregar', [ComandaController::class, 'deliverItem'])->name('comandas.deliver-item');
     Route::post('comandas/{comanda}/cobrar', [ComandaController::class, 'collect'])->name('comandas.collect');
     Route::post('comandas/{comanda}/cerrar', [ComandaController::class, 'close'])->name('comandas.close');
+    Route::delete('comandas/{comanda}', [ComandaController::class, 'destroy'])->name('comandas.destroy');
 
     Route::get('sales', [SalesController::class, 'index'])->name('sales.index');
     Route::get('sales/{sale}', [SalesController::class, 'show'])->name('sales.show');

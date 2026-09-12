@@ -2185,6 +2185,37 @@ body.login-page {
     color: var(--muted);
 }
 
+/* En pantallas angostas los tres pasos se compactan sin romper el flujo */
+@media (max-width: 575.98px) {
+    .stepper {
+        gap: 0.25rem;
+    }
+
+    .step {
+        gap: 0.4rem;
+    }
+
+    .step-dot {
+        width: 30px;
+        height: 30px;
+        font-size: 0.85rem;
+    }
+
+    .step:not(:last-child)::after {
+        top: 15px;
+        left: 41px;
+        right: -0.35rem;
+    }
+
+    .step-label {
+        font-size: 0.78rem;
+    }
+
+    .step-sub {
+        display: none;
+    }
+}
+
 /* ---- Items con progreso ---- */
 .comanda-items {
     display: flex;

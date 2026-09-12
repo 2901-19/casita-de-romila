@@ -2,10 +2,10 @@
 
 namespace Tests\Feature;
 
-use App\Models\Category;
 use App\Models\Comanda;
 use App\Models\ComandaItem;
 use App\Models\ComandaPayment;
+use App\Models\Combo;
 use App\Models\Customer;
 use App\Models\ExchangeRate;
 use App\Models\Product;
@@ -46,6 +46,7 @@ class ComandaTest extends TestCase
                 'note' => $entry[3] ?? null,
             ];
         }
+
         return ['cart' => $cart];
     }
 
@@ -118,6 +119,21 @@ class ComandaTest extends TestCase
 
         $this->assertEquals('0001', Comanda::orderBy('id')->first()->comanda_number);
         $this->assertEquals('0002', Comanda::orderBy('id')->skip(1)->first()->comanda_number);
+    }
+
+    public function test_comanda_number_restarts_next_day(): void
+    {
+        $user = User::factory()->create();
+        $this->actingAs($user);
+        $product = $this->makeProduct();
+
+        $this->post('/comandas', $this->makeCart([[$product, 1]]));
+        $this->assertEquals('0001', Comanda::orderBy('id')->first()->comanda_number);
+
+        Comanda::whereKey(Comanda::first()->id)->update(['created_at' => now()->subDay()]);
+
+        $this->post('/comandas', $this->makeCart([[$product, 1]]));
+        $this->assertEquals('0001', Comanda::orderBy('id')->skip(1)->first()->comanda_number);
     }
 
     public function test_show_displays_total_always(): void
@@ -553,7 +569,7 @@ class ComandaTest extends TestCase
     {
         $user = User::factory()->create();
         $this->actingAs($user);
-        $combo = \App\Models\Combo::factory()->create([
+        $combo = Combo::factory()->create([
             'sale_price' => 8.32,
             'is_active' => true,
             'round_bs' => 10,
@@ -628,7 +644,7 @@ class ComandaTest extends TestCase
 
         $this->post('/comandas', $this->makeCart([[$product, 1]]));
         $this->post('/comandas', $this->makeCart([[$product, 1]]));
-        $this->patch('/comandas/' . Comanda::orderBy('id')->skip(1)->first()->id . '/entregar');
+        $this->patch('/comandas/'.Comanda::orderBy('id')->skip(1)->first()->id.'/entregar');
         $this->post('/comandas', $this->makeCart([[$product, 1]]));
         $this->collectComanda(Comanda::orderBy('id')->skip(2)->first()->id, 'efectivo');
         $this->closeComanda(Comanda::orderBy('id')->skip(2)->first()->id);
@@ -683,11 +699,97 @@ class ComandaTest extends TestCase
         $product = $this->makeProduct();
         $this->post('/comandas', $this->makeCart([[$product, 1, 'local']]));
         $this->post('/comandas', $this->makeCart([[$product, 1, 'delivery']]));
-        $this->patch('/comandas/' . Comanda::orderBy('id')->skip(1)->first()->id . '/entregar');
+        $this->patch('/comandas/'.Comanda::orderBy('id')->skip(1)->first()->id.'/entregar');
 
         $response = $this->get('/comandas?status=entregada');
 
         $data = $response->viewData('comandas');
         $this->assertEquals(1, $data->total());
+    }
+
+    public function test_destroy_deletes_montada_comanda(): void
+    {
+        $user = User::factory()->create();
+        $this->actingAs($user);
+        $product = $this->makeProduct(stock: 50, type: 'inventariable', price: 10);
+
+        $this->post('/comandas', $this->makeCart([[$product, 2]]));
+        $comanda = Comanda::first();
+
+        $response = $this->delete("/comandas/{$comanda->id}");
+
+        $response->assertRedirect(route('comandas.index'));
+        $response->assertSessionHas('success');
+        $this->assertDatabaseMissing('comandas', ['id' => $comanda->id]);
+        $this->assertDatabaseMissing('comanda_items', ['comanda_id' => $comanda->id]);
+
+        $product->refresh();
+        $this->assertEquals(50, $product->stock_current);
+    }
+
+    public function test_destroy_deletes_comanda_with_partial_payments(): void
+    {
+        $user = User::factory()->create();
+        $this->actingAs($user);
+        $product = $this->makeProduct(stock: 50, type: 'inventariable', price: 10);
+        $extra = $this->makeProduct(stock: 50, type: 'inventariable', price: 5);
+
+        $this->post('/comandas', $this->makeCart([[$product, 1]]));
+        $comanda = Comanda::first();
+        $this->collectComanda($comanda->id, 'efectivo');
+        $this->put("/comandas/{$comanda->id}", $this->makeCart([[$extra, 1]]));
+        $comanda->refresh();
+
+        $this->assertEquals(1, ComandaPayment::count());
+        $this->assertTrue($comanda->items->contains(fn ($i) => $i->collected));
+
+        $response = $this->delete("/comandas/{$comanda->id}");
+
+        $response->assertSessionHas('success');
+        $this->assertDatabaseMissing('comandas', ['id' => $comanda->id]);
+        $this->assertDatabaseMissing('comanda_items', ['comanda_id' => $comanda->id]);
+        $this->assertDatabaseMissing('comanda_payments', ['comanda_id' => $comanda->id]);
+    }
+
+    public function test_cannot_destroy_cobrada_comanda(): void
+    {
+        $user = User::factory()->create();
+        $this->actingAs($user);
+        $product = $this->makeProduct(stock: 50, type: 'inventariable', price: 10);
+
+        $this->post('/comandas', $this->makeCart([[$product, 1]]));
+        $comanda = Comanda::first();
+        $this->collectComanda($comanda->id, 'efectivo');
+        $this->closeComanda($comanda->id);
+        $comanda->refresh();
+        $this->assertEquals('cobrada', $comanda->status);
+        $saleId = $comanda->sale_id;
+
+        $response = $this->delete("/comandas/{$comanda->id}");
+
+        $response->assertSessionHas('error');
+        $this->assertDatabaseHas('comandas', ['id' => $comanda->id, 'status' => 'cobrada']);
+        $this->assertDatabaseHas('sales', ['id' => $saleId]);
+    }
+
+    public function test_destroy_removes_comanda_from_index_and_history(): void
+    {
+        $user = User::factory()->create();
+        $this->actingAs($user);
+        $product = $this->makeProduct(price: 10);
+
+        $this->post('/comandas', $this->makeCart([[$product, 1]]));
+        $this->post('/comandas', $this->makeCart([[$product, 1]]));
+        $comanda = Comanda::orderBy('id')->skip(1)->first();
+
+        $this->delete("/comandas/{$comanda->id}");
+
+        $index = $this->get('/comandas');
+        $data = $index->viewData('comandas');
+        $this->assertEquals(1, $data->total());
+        $this->assertFalse($data->contains(fn ($c) => $c->comanda_number === '0002'));
+
+        $history = $this->get('/comandas/history');
+        $this->assertEquals(0, $history->viewData('comandas')->total());
     }
 }

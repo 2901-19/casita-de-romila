@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Http\Controllers;
 
 use App\Exceptions\CheckoutException;
@@ -11,6 +13,7 @@ use App\Models\Customer;
 use App\Models\ExchangeRate;
 use App\Models\Product;
 use App\Services\CheckoutService;
+use App\Support\Pricing;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -20,8 +23,7 @@ class ComandaController extends Controller
 {
     public function __construct(
         protected CheckoutService $checkout,
-    ) {
-    }
+    ) {}
 
     public function index(Request $request): View
     {
@@ -66,16 +68,22 @@ class ComandaController extends Controller
         $items = $this->buildItems($validated['cart'], $rate);
         $total = $this->sumItems($items);
 
-        $comanda = Comanda::create([
-            'comanda_number' => $this->nextComandaNumber(),
-            'user_id' => $request->user()->id,
-            'status' => Comanda::STATUS_MONTADA,
-            'customer_name' => $validated['customer_name'] ?? null,
-            'total' => $total,
-            'sale_id' => null,
-        ]);
+        $comanda = DB::transaction(function () use ($request, $validated, $items, $total) {
+            $this->serializeComandaNumbering();
 
-        $this->saveItems($comanda, $items);
+            $comanda = Comanda::create([
+                'comanda_number' => $this->nextComandaNumber(),
+                'user_id' => $request->user()->id,
+                'status' => Comanda::STATUS_MONTADA,
+                'customer_name' => $validated['customer_name'] ?? null,
+                'total' => $total,
+                'sale_id' => null,
+            ]);
+
+            $this->saveItems($comanda, $items);
+
+            return $comanda;
+        });
 
         return redirect()
             ->route('comandas.index')
@@ -186,6 +194,15 @@ class ComandaController extends Controller
                 ->with('error', 'Ya hay cobros a crédito. No puede mezclar contado con crédito.');
         }
 
+        if ($validated['payment_method'] === 'credito') {
+            $existingCreditCustomer = $comanda->payments->where('method', 'credito')?->first()?->customer_id;
+            if ($existingCreditCustomer !== null && (int) $existingCreditCustomer !== (int) $validated['customer_id']) {
+                return redirect()
+                    ->route('comandas.show', $comanda)
+                    ->with('error', 'El crédito de esta comanda ya está asignado a otro cliente.');
+            }
+        }
+
         $amount = round($pending->sum(fn ($item) => (float) $item->subtotal), 2);
 
         ComandaItem::whereIn('id', $pending->pluck('id'))->update(['collected' => true]);
@@ -198,7 +215,7 @@ class ComandaController extends Controller
 
         return redirect()
             ->route('comandas.show', $comanda)
-            ->with('success', 'Cobro registrado (Bs ' . number_format($amount, 2, ',', '.') . ').');
+            ->with('success', 'Cobro registrado (Bs '.number_format($amount, 2, ',', '.').').');
     }
 
     public function close(Request $request, Comanda $comanda): RedirectResponse
@@ -227,6 +244,22 @@ class ComandaController extends Controller
             ->with('success', 'Comanda cerrada. Venta registrada.');
     }
 
+    public function destroy(Comanda $comanda): RedirectResponse
+    {
+        if ($comanda->status === Comanda::STATUS_COBRADA) {
+            return redirect()
+                ->route('comandas.show', $comanda)
+                ->with('error', 'No se puede eliminar una comanda ya cerrada que generó una venta.');
+        }
+
+        $number = $comanda->comanda_number;
+        $comanda->delete();
+
+        return redirect()
+            ->route('comandas.index')
+            ->with('success', "Comanda #{$number} eliminada.");
+    }
+
     protected function baseRules(): array
     {
         return [
@@ -234,7 +267,7 @@ class ComandaController extends Controller
             'cart' => ['required', 'array', 'min:1'],
             'cart.*.product_id' => ['required'],
             'cart.*.quantity' => ['required', 'integer', 'min:1'],
-            'cart.*.order_type' => ['required', 'in:' . implode(',', [
+            'cart.*.order_type' => ['required', 'in:'.implode(',', [
                 Comanda::ORDER_DELIVERY,
                 Comanda::ORDER_LOCAL,
                 Comanda::ORDER_PARA_LLEVAR,
@@ -257,7 +290,7 @@ class ComandaController extends Controller
                 if (! $combo) {
                     continue;
                 }
-                $unitPrice = \App\Support\Pricing::bs((float) $combo->sale_price, $rate, $combo->round_bs);
+                $unitPrice = Pricing::bs((float) $combo->sale_price, $rate, $combo->round_bs);
                 $items[] = [
                     'product_id' => null,
                     'combo_id' => $combo->id,
@@ -272,7 +305,7 @@ class ComandaController extends Controller
                 if (! $product) {
                     continue;
                 }
-                $unitPrice = \App\Support\Pricing::bs((float) $product->sale_price, $rate, $product->round_bs);
+                $unitPrice = Pricing::bs((float) $product->sale_price, $rate, $product->round_bs);
                 $items[] = [
                     'product_id' => $product->id,
                     'combo_id' => null,
@@ -284,6 +317,7 @@ class ComandaController extends Controller
                 ];
             }
         }
+
         return $items;
     }
 
@@ -339,7 +373,21 @@ class ComandaController extends Controller
     protected function nextComandaNumber(): string
     {
         $count = Comanda::whereDate('created_at', now()->toDateString())->count();
+
         return str_pad((string) ($count + 1), 4, '0', STR_PAD_LEFT);
+    }
+
+    /**
+     * Serializa la numeración diaria de comandas vía advisory lock de
+     * PostgreSQL (no-op en SQLite, donde los tests corren en un solo proceso).
+     */
+    protected function serializeComandaNumbering(): void
+    {
+        if (DB::connection()->getDriverName() !== 'pgsql') {
+            return;
+        }
+
+        DB::select('select pg_advisory_xact_lock(?)', [crc32('comanda_number:'.now()->toDateString())]);
     }
 
     protected function currentRate(): float
