@@ -33,6 +33,7 @@ document.addEventListener('submit', function (e) {
         cancelButtonText: 'Cancelar',
         confirmButtonColor: 'var(--danger)',
         reverseButtons: true,
+        allowOutsideClick: false,
     }).then(function (result) {
         if (result.isConfirmed) {
             if (form.dataset.submitted) return;
@@ -40,5 +41,21 @@ document.addEventListener('submit', function (e) {
             form.removeAttribute('data-confirm-title');
             form.submit();
         }
+    });
+});
+
+// Previene doble envío por doble clic en cualquier form (POST/PUT/PATCH/DELETE).
+// Los forms GET (filtros) y el checkout de POS (fetch async con `processing`)
+// quedan excluidos de forma natural.
+document.addEventListener('submit', function (e) {
+    var form = e.target;
+    if (!(form instanceof HTMLFormElement) || form.method === 'get') return;
+    if (e.submitter) e.submitter.disabled = true;
+});
+
+// Rehabilita botones al cerrar un modal sin enviar el form dentro.
+document.addEventListener('hidden.bs.modal', function (e) {
+    e.target.querySelectorAll('button[type="submit"]').forEach(function (btn) {
+        btn.disabled = false;
     });
 });
