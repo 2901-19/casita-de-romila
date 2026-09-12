@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\Combo;
+use App\Models\ExchangeRate;
 use App\Models\Product;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -230,6 +231,37 @@ class ComboTest extends TestCase
         $response->assertSee('id="salePriceBs"', false);
         $response->assertSee('id="roundBsToggle"', false);
         $response->assertSee('updateUsdFromBs', false);
+    }
+
+    public function test_edit_view_seed_products_json_is_valid_with_special_chars(): void
+    {
+        $user = User::factory()->gerente()->create();
+        $this->actingAs($user);
+        ExchangeRate::factory()->create(['rate' => 36.10]);
+
+        $productA = Product::factory()->create(['name' => 'Hamburguesa & Papas', 'sale_price' => 2.5]);
+        $productB = Product::factory()->create(['name' => 'Pan "Rey"', 'sale_price' => 3.0]);
+        $combo = Combo::factory()->create(['sale_price' => 8.50, 'round_bs' => 10]);
+        $combo->products()->attach([
+            $productA->id => ['quantity' => 1],
+            $productB->id => ['quantity' => 2],
+        ]);
+
+        $response = $this->get("/combos/{$combo->id}/edit");
+        $response->assertStatus(200);
+
+        $content = $response->getContent();
+        $start = strpos($content, 'var selectedProducts = ');
+        $this->assertNotFalse($start);
+        $segment = substr($content, $start, 1200);
+
+        $this->assertStringContainsString('"name":"Hamburguesa \u0026 Papas"', $segment);
+        $this->assertStringContainsString('"name":"Pan \u0022Rey\u0022"', $segment);
+        $this->assertStringNotContainsString('&amp;', $segment);
+        $this->assertStringNotContainsString('&quot;', $segment);
+        $this->assertStringNotContainsString('&#039;', $segment);
+
+        $this->assertStringContainsString('value="310.00"', $content);
     }
 
     public function test_updates_combo_round_bs(): void

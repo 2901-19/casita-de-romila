@@ -7,6 +7,7 @@ use App\Http\Requests\UpdateComboRequest;
 use App\Models\Combo;
 use App\Models\ExchangeRate;
 use App\Models\Product;
+use App\Support\Like;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
@@ -20,7 +21,7 @@ class ComboController extends Controller
 
         if ($request->filled('search')) {
             $search = $request->input('search');
-            $query->where('name', 'like', "%{$search}%");
+            Like::apply($query, 'name', $search);
         }
 
         if ($request->filled('status') && $request->input('status') !== 'all') {
@@ -77,7 +78,15 @@ class ComboController extends Controller
 
         $rate = (float) (ExchangeRate::latest()->first()?->rate ?? 1);
 
-        return view('combos.edit', compact('combo', 'products', 'rate'));
+        $comboSeed = $combo->products->map(fn ($p) => [
+            'id' => (int) $p->id,
+            'name' => $p->name,
+            'price' => round((float) $p->sale_price, 2),
+            'category' => $p->category->name ?? 'Sin categoría',
+            'quantity' => (int) $p->pivot->quantity,
+        ])->keyBy('id');
+
+        return view('combos.edit', compact('combo', 'products', 'rate', 'comboSeed'));
     }
 
     public function update(UpdateComboRequest $request, Combo $combo): RedirectResponse

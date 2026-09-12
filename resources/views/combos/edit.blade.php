@@ -154,7 +154,8 @@
                                                        id="salePriceBs"
                                                        min="0"
                                                        step="0.01"
-                                                       placeholder="0.00">
+                                                       placeholder="0.00"
+                                                       value="{{ number_format(\App\Support\Pricing::bs((float) old('sale_price', $combo->sale_price), $rate, $combo->round_bs ?? null), 2, '.', '') }}">
                                             </div>
                                         </div>
                                     </div>
@@ -231,18 +232,10 @@
 (function () {
     var productSelect = document.getElementById('productSelect');
     var comboProductsBody = document.getElementById('comboProductsBody');
-    var selectedProducts = {};
     var rate = {{ $rate }};
     var comboTotalUsd = 0;
 
-    @foreach($combo->products as $product)
-    selectedProducts[{{ $product->id }}] = {
-        name: {{ json_encode($product->name) }},
-        price: {{ number_format($product->sale_price, 2, '.', '') }},
-        category: {{ json_encode($product->category->name ?? 'Sin categoría') }},
-        quantity: {{ $product->pivot->quantity }}
-    };
-    @endforeach
+    var selectedProducts = @json($comboSeed);
 
     var roundBsEl = document.getElementById('salePriceBs');
     var roundToggleEl = document.getElementById('roundBsToggle');
