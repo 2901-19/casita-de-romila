@@ -583,6 +583,22 @@ class ReportTest extends TestCase
         $response->assertHeader('Content-Type', 'text/csv; charset=UTF-8');
     }
 
+    public function test_schedule_query_uses_only_positional_bindings(): void
+    {
+        $query = Sale::where('status', 'completada')
+            ->whereDate('created_at', '>=', now()->startOfMonth()->toDateString())
+            ->whereDate('created_at', '<=', now()->toDateString())
+            ->selectRaw("CASE WHEN EXTRACT(HOUR FROM sales.created_at) < 15 THEN ? ELSE ? END as schedule,
+                COUNT(*) as tickets, SUM(sales.total) as revenue",
+                ['Manana (antes 3pm)', 'Noche (despues 3pm)'])
+            ->groupBy('schedule');
+
+        $sql = $query->toSql();
+
+        $this->assertStringNotContainsString(':', $sql, 'No se permiten bindings nombrados (rompen PDO en PostgreSQL)');
+        $this->assertSame(substr_count($sql, '?'), count($query->getBindings()), 'Cada placeholder debe tener su binding posicional');
+    }
+
     // ─── Productos de lento movimiento ──────────────────────
 
     public function test_slow_movers_report_loads(): void

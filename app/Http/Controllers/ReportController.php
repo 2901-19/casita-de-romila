@@ -11,6 +11,7 @@ use App\Models\Product;
 use App\Models\Production;
 use App\Models\Sale;
 use App\Models\SaleItem;
+use App\Support\Dates;
 use App\Traits\ExportableCsv;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -22,10 +23,14 @@ class ReportController extends Controller
 
     protected function dateRange(Request $request): array
     {
-        return [
-            $request->filled('from') ? $request->from : now()->startOfMonth()->format('Y-m-d'),
-            $request->filled('to') ? $request->to : now()->format('Y-m-d'),
-        ];
+        $from = Dates::valid($request->input('from'))
+            ? $request->input('from')
+            : now()->startOfMonth()->format('Y-m-d');
+        $to = Dates::valid($request->input('to'))
+            ? $request->input('to')
+            : now()->format('Y-m-d');
+
+        return [$from, $to];
     }
 
     protected function currentRate(): float
@@ -124,7 +129,11 @@ class ReportController extends Controller
         $byMethod->put('credito', $creditTotal);
 
         $rate = (float) (ExchangeRate::latest()->first()?->rate ?? 1);
-        $totalUsd = $rate > 0 ? $totalRevenue / $rate : 0;
+        $totalUsd = (float) Sale::where('status', 'completada')
+            ->whereDate('created_at', '>=', $from)
+            ->whereDate('created_at', '<=', $to)
+            ->selectRaw('COALESCE(SUM(total / COALESCE(NULLIF(rate, 0), ?)), 0) as usd', [$rate])
+            ->value('usd');
 
         return view('reports.sales', compact('sales', 'totalRevenue', 'totalTickets', 'avgTicket', 'totalUsd', 'byMethod', 'from', 'to'));
     }
@@ -145,13 +154,14 @@ class ReportController extends Controller
         $rows = $sales->map(fn ($s) => [
             $s->id,
             $s->created_at->format('d/m/Y h:i a'),
+            $s->paid_at?->format('d/m/Y h:i a') ?? '—',
             $s->items_count ?? $s->items()->count(),
             number_format($s->total, 2, ',', '.'),
             $methodLabels[$s->payment_method] ?? ($methodLabels[$s->payments->first()?->method] ?? '—'),
         ]);
 
         return $this->exportCsv(
-            ['#', 'Fecha', 'Items', 'Total (Bs)', 'Metodo'],
+            ['#', 'Fecha', 'Fecha Cobro', 'Items', 'Total (Bs)', 'Metodo'],
             $rows,
             "ventas_{$from}_{$to}.csv"
         );
@@ -195,28 +205,32 @@ class ReportController extends Controller
 
     protected function salesStats(string $from, string $to, float $rate)
     {
-        $productStats = SaleItem::whereHas('sale', fn ($q) => $q->where('status', 'completada')
-            ->whereDate('created_at', '>=', $from)
-            ->whereDate('created_at', '<=', $to))
-            ->whereNotNull('product_id')
+        $productStats = SaleItem::join('sales', 'sale_items.sale_id', '=', 'sales.id')
             ->join('products', 'sale_items.product_id', '=', 'products.id')
+            ->where('sales.status', 'completada')
+            ->whereDate('sales.created_at', '>=', $from)
+            ->whereDate('sales.created_at', '<=', $to)
+            ->whereNotNull('sale_items.product_id')
             ->selectRaw('sale_items.product_id,
                 COALESCE(SUM(sale_items.quantity), 0) as total_sold,
                 COALESCE(SUM(sale_items.subtotal), 0) as revenue,
-                COALESCE(SUM(sale_items.quantity * products.cost_price), 0) as cost_usd')
+                COALESCE(SUM(sale_items.quantity * products.cost_price * COALESCE(sales.rate, ?)), 0) as cost_bs',
+                [$rate])
             ->groupBy('sale_items.product_id')
             ->get()
             ->keyBy('product_id');
 
-        $comboStats = SaleItem::whereHas('sale', fn ($q) => $q->where('status', 'completada')
-            ->whereDate('created_at', '>=', $from)
-            ->whereDate('created_at', '<=', $to))
-            ->whereNotNull('combo_id')
+        $comboStats = SaleItem::join('sales', 'sale_items.sale_id', '=', 'sales.id')
             ->join('combos', 'sale_items.combo_id', '=', 'combos.id')
+            ->where('sales.status', 'completada')
+            ->whereDate('sales.created_at', '>=', $from)
+            ->whereDate('sales.created_at', '<=', $to)
+            ->whereNotNull('sale_items.combo_id')
             ->selectRaw('sale_items.combo_id,
                 COALESCE(SUM(sale_items.quantity), 0) as total_sold,
                 COALESCE(SUM(sale_items.subtotal), 0) as revenue,
-                COALESCE(SUM(sale_items.quantity * combos.sale_price), 0) as cost_usd')
+                COALESCE(SUM(sale_items.quantity * combos.sale_price * COALESCE(sales.rate, ?)), 0) as cost_bs',
+                [$rate])
             ->groupBy('sale_items.combo_id')
             ->get()
             ->keyBy('combo_id');
@@ -231,7 +245,7 @@ class ReportController extends Controller
                 'control_type' => $p->control_type,
                 'total_sold' => (int) ($stat->total_sold ?? 0),
                 'revenue' => (float) ($stat->revenue ?? 0),
-                'cost' => round((float) ($stat->cost_usd ?? 0) * $rate, 2),
+                'cost' => round((float) ($stat->cost_bs ?? 0), 2),
                 'stock_current' => $p->stock_current,
                 'stock_min' => $p->stock_min,
             ]);
@@ -245,7 +259,7 @@ class ReportController extends Controller
                 'control_type' => 'combo',
                 'total_sold' => (int) ($stat->total_sold ?? 0),
                 'revenue' => (float) ($stat->revenue ?? 0),
-                'cost' => round((float) ($stat->cost_usd ?? 0) * $rate, 2),
+                'cost' => round((float) ($stat->cost_bs ?? 0), 2),
                 'stock_current' => null,
                 'stock_min' => null,
             ]);
@@ -551,9 +565,9 @@ class ReportController extends Controller
         return Sale::where('status', 'completada')
             ->whereDate('created_at', '>=', $from)
             ->whereDate('created_at', '<=', $to)
-            ->selectRaw("CASE WHEN {$hour} < 15 THEN :manana ELSE :noche END as schedule,
+            ->selectRaw("CASE WHEN {$hour} < 15 THEN ? ELSE ? END as schedule,
                 COUNT(*) as tickets, SUM(sales.total) as revenue",
-                ['manana' => $labelManana, 'noche' => $labelNoche])
+                [$labelManana, $labelNoche])
             ->groupBy('schedule')
             ->get()
             ->keyBy('schedule');

@@ -25,7 +25,7 @@
     <div class="col-6 col-md-3">
         <div class="card">
             <div class="card-body py-2">
-                <p class="kpi-label mb-0">≈ USD (tasa actual)</p>
+                <p class="kpi-label mb-0">≈ USD (tasa por venta)</p>
                 <strong class="kpi-value">$ {{ number_format($totalUsd, 2, ',', '.') }}</strong>
             </div>
         </div>
@@ -83,20 +83,21 @@
         <div class="table-responsive">
             <table class="table align-middle">
                 <thead>
-                    <tr><th>#</th><th>Fecha</th><th>Items</th><th class="text-end">Total</th><th>Metodo</th></tr>
+                    <tr><th>#</th><th>Fecha</th><th>Fecha Cobro</th><th>Items</th><th class="text-end">Total</th><th>Metodo</th></tr>
                 </thead>
                 <tbody>
                     @forelse($sales as $s)
                     <tr>
                         <td class="num">#{{ $s->id }}</td>
                         <td class="text-muted">{{ $s->created_at->format('d/m/Y h:i a') }}</td>
+                        <td class="text-muted">{{ $s->paid_at?->format('d/m/Y h:i a') ?? '—' }}</td>
                         <td>{{ $s->items->count() }}</td>
                         <td class="text-end num">Bs {{ number_format($s->total, 2, ',', '.') }}</td>
                         @php($methods = ['efectivo' => 'Efectivo', 'biopago' => 'Biopago', 'transferencia' => 'Transfer.', 'pago_movil' => 'Pago Movil', 'pdv' => 'PDV', 'credito' => 'Credito'])
                         <td><span class="badge-soft {{ $s->payment_method === 'credito' ? 'warning' : 'muted' }}">{{ $methods[$s->payment_method] ?? ($methods[$s->payments->first()?->method] ?? '—') }}</span></td>
                     </tr>
                     @empty
-                    <tr><td colspan="5" class="text-center text-muted py-4">Sin ventas en este periodo</td></tr>
+                    <tr><td colspan="6" class="text-center text-muted py-4">Sin ventas en este periodo</td></tr>
                     @endforelse
                 </tbody>
             </table>

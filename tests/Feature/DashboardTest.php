@@ -34,7 +34,7 @@ class DashboardTest extends TestCase
         $response = $this->get('/dashboard');
 
         $response->assertStatus(200);
-        $response->assertSee('Ventas del Día');
+        $response->assertSee('Ingresos del Día');
         $response->assertSee('Productos Activos');
         $response->assertSee('Tasa BCV');
     }
@@ -58,7 +58,7 @@ class DashboardTest extends TestCase
         $response = $this->get('/dashboard');
 
         $response->assertStatus(200);
-        $response->assertSee('Ventas del Día');
+        $response->assertSee('Ingresos del Día');
     }
 
     public function test_metrics_count_settled_credit_and_exclude_pending(): void
@@ -66,12 +66,32 @@ class DashboardTest extends TestCase
         $user = User::factory()->create();
         $this->actingAs($user);
 
-        Sale::factory()->create([
+        $creditPaidYesterday = Sale::factory()->create([
+            'user_id' => $user->id,
+            'status' => 'completada',
+            'payment_method' => 'credito',
+            'total' => 500.00,
+            'created_at' => now()->subDay(),
+        ]);
+        SalePayment::factory()->create([
+            'sale_id' => $creditPaidYesterday->id,
+            'method' => 'credito',
+            'amount' => 500.00,
+            'created_at' => now()->subDay(),
+        ]);
+
+        $creditChargedToday = Sale::factory()->create([
             'user_id' => $user->id,
             'status' => 'completada',
             'payment_method' => 'credito',
             'total' => 1584.56,
             'created_at' => now()->subDay(),
+        ]);
+        SalePayment::factory()->create([
+            'sale_id' => $creditChargedToday->id,
+            'method' => 'credito',
+            'amount' => 1584.56,
+            'created_at' => now(),
         ]);
 
         Sale::factory()->create([
@@ -95,10 +115,11 @@ class DashboardTest extends TestCase
         $response = $this->get('/dashboard');
 
         $response->assertStatus(200);
-        $response->assertViewHas('totalToday', fn ($t) => abs((float) $t - 3200.0) < 0.01);
-        $response->assertViewHas('totalYesterday', fn ($t) => abs((float) $t - 1584.56) < 0.01);
-        $response->assertViewHas('weeklySales', fn ($w) => abs((float) $w->sum() - (3200.0 + 1584.56)) < 0.01);
+        $response->assertViewHas('totalToday', fn ($t) => abs((float) $t - (3200.0 + 1584.56)) < 0.01);
+        $response->assertViewHas('totalYesterday', fn ($t) => abs((float) $t - 500.0) < 0.01);
+        $response->assertViewHas('weeklySales', fn ($w) => abs((float) $w->sum() - (3200.0 + 1584.56 + 500.0)) < 0.01);
         $response->assertViewHas('paymentTotals', fn ($pt) => abs((float) ($pt['efectivo'] ?? 0) - 3200.0) < 0.01);
+        $response->assertViewHas('paymentTotals', fn ($pt) => abs((float) ($pt['credito'] ?? 0) - 1584.56) < 0.01);
         $response->assertDontSee('777,77');
     }
 
@@ -107,11 +128,16 @@ class DashboardTest extends TestCase
         $user = User::factory()->create();
         $this->actingAs($user);
 
-        Sale::factory()->create([
+        $sale = Sale::factory()->create([
             'user_id' => $user->id,
             'status' => 'completada',
             'payment_method' => 'credito',
             'total' => 500.00,
+        ]);
+        SalePayment::factory()->create([
+            'sale_id' => $sale->id,
+            'method' => 'credito',
+            'amount' => 500.00,
         ]);
 
         $response = $this->get('/dashboard');

@@ -9,7 +9,7 @@
             <div class="card-body">
                 <div class="d-flex align-items-start justify-content-between">
                     <div class="min-w-0">
-                        <p class="kpi-label">Ventas del Día</p>
+                        <p class="kpi-label">Ingresos del Día</p>
                         <h3 class="kpi-value">Bs {{ number_format($totalToday, 2, ',', '.') }}</h3>
                         <span class="kpi-trend {{ $trendPercent >= 0 ? 'up' : 'down' }}">
                             @if($trendPercent > 0)
@@ -116,7 +116,7 @@
             <div class="card-body">
                 <div class="d-flex justify-content-between align-items-start mb-3">
                     <div>
-                        <h2 class="card-title">Ventas por Método de Pago</h2>
+                        <h2 class="card-title">Ingresos por Método de Pago</h2>
                         <span class="card-sub">Hoy · total Bs {{ number_format($totalToday, 2, ',', '.') }}</span>
                     </div>
                 </div>
@@ -137,7 +137,7 @@
             <div class="card-body">
                 <div class="d-flex justify-content-between align-items-start mb-3">
                     <div>
-                        <h2 class="card-title">Ventas de la Semana</h2>
+                        <h2 class="card-title">Ingresos de la Semana</h2>
                         <span class="card-sub">Últimos 7 días</span>
                     </div>
                 </div>

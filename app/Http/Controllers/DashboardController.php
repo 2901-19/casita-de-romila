@@ -1,11 +1,13 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Http\Controllers;
 
 use App\Models\ExchangeRate;
 use App\Models\Product;
 use App\Models\Sale;
-use Illuminate\Support\Facades\DB;
+use App\Models\SalePayment;
 use Illuminate\View\View;
 
 class DashboardController extends Controller
@@ -16,13 +18,16 @@ class DashboardController extends Controller
         $yesterday = now()->subDay()->startOfDay();
         $weekStart = now()->subDays(6)->startOfDay();
 
-        $totalToday = (float) Sale::where('status', 'completada')
-            ->whereDate('created_at', $today)
-            ->sum('total');
+        // Ingresos por fecha de cobro (SalePayment.created_at), excluyendo
+        // ventas anuladas. Filtro no destructivo: no borra pagos huérfanos legados.
+        $payments = fn () => SalePayment::join('sales', 'sales.id', '=', 'sale_payments.sale_id')
+            ->where('sales.status', '!=', 'anulada');
 
-        $totalYesterday = (float) Sale::where('status', 'completada')
-            ->whereDate('created_at', $yesterday)
-            ->sum('total');
+        $totalToday = (float) $payments()->whereDate('sale_payments.created_at', $today)
+            ->sum('sale_payments.amount');
+
+        $totalYesterday = (float) $payments()->whereDate('sale_payments.created_at', $yesterday)
+            ->sum('sale_payments.amount');
 
         $trendPercent = $totalYesterday > 0
             ? round((($totalToday - $totalYesterday) / $totalYesterday) * 100, 1)
@@ -49,27 +54,17 @@ class DashboardController extends Controller
             ->limit(5)
             ->get();
 
-        $weeklySales = Sale::where('status', 'completada')
-            ->whereDate('created_at', '>=', $weekStart)
-            ->selectRaw('DATE(created_at) as day, SUM(total) as total')
+        $weeklySales = $payments()->whereDate('sale_payments.created_at', '>=', $weekStart)
+            ->selectRaw('DATE(sale_payments.created_at) as day, SUM(sale_payments.amount) as total')
             ->groupBy('day')
             ->pluck('total', 'day')
-            ->map(fn($total) => (float) $total);
+            ->map(fn ($total) => (float) $total);
 
-        $paymentTotals = Sale::where('sales.status', 'completada')
-            ->whereDate('sales.created_at', $today)
-            ->whereNull('sales.payment_method')
-            ->join('sale_payments', 'sales.id', '=', 'sale_payments.sale_id')
+        $paymentTotals = $payments()->whereDate('sale_payments.created_at', $today)
             ->selectRaw('sale_payments.method, SUM(sale_payments.amount) as total')
             ->groupBy('sale_payments.method')
             ->pluck('total', 'method')
-            ->map(fn($total) => (float) $total);
-
-        $creditTotal = (float) Sale::where('status', 'completada')
-            ->where('payment_method', 'credito')
-            ->whereDate('created_at', $today)
-            ->sum('total');
-        $paymentTotals['credito'] = $creditTotal;
+            ->map(fn ($total) => (float) $total);
 
         return view('dashboard', [
             'user' => auth()->user(),
