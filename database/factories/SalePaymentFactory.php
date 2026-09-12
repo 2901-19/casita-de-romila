@@ -14,7 +14,7 @@ class SalePaymentFactory extends Factory
     {
         return [
             'sale_id' => Sale::factory(),
-            'method' => fake()->randomElement(['efectivo', 'biopago', 'transferencia', 'pago_movil', 'pdv']),
+            'method' => fake()->randomElement(['efectivo', 'biopago', 'transferencia', 'pago_movil', 'pdv', 'credito']),
             'amount' => fake()->randomFloat(2, 10, 500),
         ];
     }

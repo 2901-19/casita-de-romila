@@ -3,8 +3,8 @@
 namespace Tests\Feature;
 
 use App\Models\Category;
+use App\Models\Combo;
 use App\Models\Customer;
-use App\Models\CreditMovement;
 use App\Models\ExchangeRate;
 use App\Models\Product;
 use App\Models\Sale;
@@ -191,10 +191,12 @@ class PosTest extends TestCase
             'credit_limit_amount' => 50.00,
             'balance' => -40.00,
         ]);
-        $product = Product::factory()->create(['control_type' => 'demanda', 'sale_price' => 10]);
+        // El precio es autoritativo del servidor: 30 USD por el precio real del
+        // producto (el limite deja solo 10 USD libres: 50 - 40 ya usado).
+        $product = Product::factory()->create(['control_type' => 'demanda', 'sale_price' => 30]);
 
         $response = $this->postJson('/pos', [
-            'cart' => [['product_id' => $product->id, 'name' => $product->name, 'price' => 2000.00, 'quantity' => 1]],
+            'cart' => [['product_id' => $product->id, 'quantity' => 1]],
             'payment_method' => 'credito',
             'customer_id' => $customer->id,
         ]);
@@ -241,6 +243,7 @@ class PosTest extends TestCase
     {
         $user = User::factory()->create();
         $this->actingAs($user);
+        ExchangeRate::factory()->create(['rate' => 100]);
         $product = Product::factory()->create([
             'control_type' => 'inventariable',
             'sale_price' => 10.00,
@@ -249,9 +252,7 @@ class PosTest extends TestCase
         ]);
 
         $response = $this->postJson('/pos', [
-            'cart' => [
-                ['product_id' => $product->id, 'name' => $product->name, 'price' => 10.00, 'quantity' => 2],
-            ],
+            'cart' => [['product_id' => $product->id, 'quantity' => 2]],
             'payment_method' => 'efectivo',
         ]);
 
@@ -262,7 +263,7 @@ class PosTest extends TestCase
         $this->assertEquals(18, $product->stock_current);
         $this->assertDatabaseHas('sales', ['status' => 'completada']);
         $this->assertDatabaseHas('sale_items', ['quantity' => 2]);
-        $this->assertDatabaseHas('sale_payments', ['method' => 'efectivo', 'amount' => 20.00]);
+        $this->assertDatabaseHas('sale_payments', ['method' => 'efectivo', 'amount' => 2000.00]);
     }
 
     public function test_sale_with_empty_cart_fails(): void
@@ -283,6 +284,7 @@ class PosTest extends TestCase
     {
         $user = User::factory()->create();
         $this->actingAs($user);
+        ExchangeRate::factory()->create(['rate' => 100]);
         $product = Product::factory()->create([
             'control_type' => 'demanda',
             'sale_price' => 5.00,
@@ -305,6 +307,7 @@ class PosTest extends TestCase
     {
         $user = User::factory()->create();
         $this->actingAs($user);
+        ExchangeRate::factory()->create(['rate' => 100]);
         $product = Product::factory()->create([
             'control_type' => 'produccion',
             'sale_price' => 4.00,
@@ -327,6 +330,7 @@ class PosTest extends TestCase
     {
         $user = User::factory()->create();
         $this->actingAs($user);
+        ExchangeRate::factory()->create(['rate' => 100]);
         $product = Product::factory()->create([
             'control_type' => 'inventariable',
             'sale_price' => 3.00,
@@ -405,7 +409,7 @@ class PosTest extends TestCase
         $this->actingAs($user);
         ExchangeRate::factory()->create(['rate' => 100]);
 
-        $combo = \App\Models\Combo::factory()->create([
+        $combo = Combo::factory()->create([
             'name' => 'Combo Redondeado',
             'is_active' => true,
             'sale_price' => 8.32,
@@ -438,5 +442,88 @@ class PosTest extends TestCase
 
         $response->assertStatus(200)
             ->assertJsonPath('items.0.sale_price', 1017);
+    }
+
+    public function test_checkout_requires_registered_rate(): void
+    {
+        $user = User::factory()->create();
+        $this->actingAs($user);
+        $product = Product::factory()->create(['control_type' => 'inventariable', 'sale_price' => 10, 'stock_current' => 5]);
+
+        $response = $this->postJson('/pos', [
+            'cart' => [['product_id' => $product->id, 'name' => $product->name, 'price' => 1000.00, 'quantity' => 1]],
+            'payment_method' => 'efectivo',
+        ]);
+
+        $response->assertStatus(422);
+        $this->assertStringContainsString('tasa', mb_strtolower($response->json('error')));
+    }
+
+    public function test_sale_stores_rate_and_paid_at_at_checkout(): void
+    {
+        $user = User::factory()->create();
+        $this->actingAs($user);
+        ExchangeRate::factory()->create(['rate' => 36.50]);
+        $product = Product::factory()->create(['control_type' => 'inventariable', 'sale_price' => 10, 'stock_current' => 5]);
+
+        $response = $this->postJson('/pos', [
+            'cart' => [['product_id' => $product->id, 'name' => $product->name, 'price' => 365.00, 'quantity' => 1]],
+            'payment_method' => 'efectivo',
+        ]);
+
+        $response->assertStatus(200);
+
+        $sale = Sale::latest('id')->first();
+        $this->assertEquals('completada', $sale->status);
+        $this->assertEquals(36.50, (float) $sale->rate);
+        $this->assertNotNull($sale->paid_at);
+    }
+
+    public function test_tampered_price_is_ignored(): void
+    {
+        $user = User::factory()->create();
+        $this->actingAs($user);
+        ExchangeRate::factory()->create(['rate' => 100]);
+        $product = Product::factory()->create([
+            'control_type' => 'inventariable',
+            'sale_price' => 10,
+            'stock_current' => 5,
+        ]);
+
+        $response = $this->postJson('/pos', [
+            'cart' => [['product_id' => $product->id, 'quantity' => 1, 'price' => 999999.99, 'name' => 'HACKED']],
+            'payment_method' => 'efectivo',
+        ]);
+
+        $response->assertStatus(200);
+
+        $sale = Sale::latest('id')->first();
+        $this->assertEquals(1000.00, (float) $sale->total);
+        $this->assertEquals($product->name, $sale->items->first()->product_name);
+        $this->assertDatabaseHas('sale_payments', ['sale_id' => $sale->id, 'amount' => 1000.00]);
+    }
+
+    public function test_sale_numbers_are_sequential_unique(): void
+    {
+        $user = User::factory()->create();
+        $this->actingAs($user);
+        ExchangeRate::factory()->create(['rate' => 100]);
+        $product = Product::factory()->create([
+            'control_type' => 'inventariable',
+            'sale_price' => 10,
+            'stock_current' => 50,
+        ]);
+
+        foreach (range(1, 3) as $i) {
+            $this->postJson('/pos', [
+                'cart' => [['product_id' => $product->id, 'quantity' => 1]],
+                'payment_method' => 'efectivo',
+            ])->assertStatus(200);
+        }
+
+        $numbers = Sale::orderBy('id')->pluck('sale_number')->map(fn ($n) => (int) $n)->all();
+        $this->assertCount(3, $numbers);
+        $this->assertSame([1, 2, 3], $numbers);
+        $this->assertSame(3, Sale::distinct('sale_number')->count());
     }
 }

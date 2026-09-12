@@ -18,6 +18,8 @@ document.addEventListener('alpine:init', function () {
             checkoutModal: null,
             _receiptTime: '',
             _debounceTimer: null,
+            _fetchSeq: 0,
+            _successModal: null,
 
             init: function () {
                 this.cart = {};
@@ -52,6 +54,7 @@ document.addEventListener('alpine:init', function () {
             fetchProducts: async function () {
                 if (this.loading) return;
                 this.loading = true;
+                const seq = ++this._fetchSeq;
                 try {
                     const params = new URLSearchParams({ page: this.page });
                     if (this.searchQuery) params.set('search', this.searchQuery);
@@ -61,11 +64,14 @@ document.addEventListener('alpine:init', function () {
                     });
                     if (!response.ok) return;
                     const data = await response.json();
+                    if (seq !== this._fetchSeq) return;
                     this.items = data.items || [];
                     this.totalPages = data.total_pages || 1;
                     this.page = data.page || 1;
                 } finally {
-                    this.loading = false;
+                    if (seq === this._fetchSeq) {
+                        this.loading = false;
+                    }
                 }
             },
 
@@ -158,6 +164,7 @@ document.addEventListener('alpine:init', function () {
                 if (Object.keys(this.cart).length === 0 || (this.paymentMethod === 'credito' && !this.customerId)) {
                     return;
                 }
+                this.checkoutError = '';
                 this.updateReceiptTime();
                 var el = document.getElementById('checkoutModal');
                 if (!el) return;
@@ -185,7 +192,10 @@ document.addEventListener('alpine:init', function () {
                             'Content-Type': 'application/json',
                         },
                         body: JSON.stringify({
-                            cart: this.cart,
+                            cart: Object.values(this.cart).map(item => ({
+                                product_id: item.product_id,
+                                quantity: item.quantity,
+                            })),
                             payment_method: this.paymentMethod,
                             customer_id: this.paymentMethod === 'credito' ? this.customerId : null,
                         }),
@@ -206,8 +216,12 @@ document.addEventListener('alpine:init', function () {
                         this.lastSaleTotal = this.subtotal;
                         this.lastSalePaymentMethod = this.paymentMethod;
                         this.clearCart();
-                        let successModal = new bootstrap.Modal(document.getElementById('successModal'));
-                        successModal.show();
+                        const el = document.getElementById('successModal');
+                        if (el) {
+                            if (this._successModal) this._successModal.dispose();
+                            this._successModal = new bootstrap.Modal(el);
+                            this._successModal.show();
+                        }
                     } else {
                         var errorMsg = (data && (data.error || data.message)) || ('Error al procesar la venta. (HTTP ' + response.status + ')');
                         if (data && data.errors) {

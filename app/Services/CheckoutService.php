@@ -1,15 +1,19 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Services;
 
 use App\Exceptions\CheckoutException;
 use App\Models\Comanda;
+use App\Models\Combo;
 use App\Models\CreditMovement;
 use App\Models\Customer;
 use App\Models\ExchangeRate;
 use App\Models\Product;
 use App\Models\Sale;
 use App\Models\SalePayment;
+use App\Support\Pricing;
 use Illuminate\Support\Facades\DB;
 
 class CheckoutService
@@ -17,11 +21,12 @@ class CheckoutService
     /**
      * Ejecuta un checkout reutilizable (POS y comandas).
      *
-     * @param array $cart          items: [{product_id, name, price, quantity}]
-     * @param string $paymentMethod efectivo|biopago|pago_movil|pdv|credito
-     * @param int|null $customerId
-     * @param int $userId
-     * @param int|null $comandaId  comanda que genera esta venta (opcional)
+     * El precio lo recalcula el servidor desde la BD (sale_price × tasa
+     * vigente) y NUNCA confía en el precio enviado por el cliente.
+     *
+     * @param  array  $cart  items: [{product_id, name?, price?, quantity}]
+     * @param  string  $paymentMethod  efectivo|biopago|pago_movil|pdv|credito
+     * @param  int|null  $comandaId  comanda que genera esta venta (opcional)
      *
      * @throws CheckoutException
      */
@@ -32,13 +37,15 @@ class CheckoutService
         int $userId,
         ?int $comandaId = null,
     ): Sale {
-        $total = array_reduce($cart, fn ($sum, $item) => $sum + ((float) $item['price'] * (int) $item['quantity']), 0);
+        $rate = $this->currentRate();
+        $cart = $this->normalizeCart($cart, $rate);
+        $total = round(array_reduce($cart, fn ($sum, $item) => $sum + ((float) $item['price'] * (int) $item['quantity']), 0), 2);
         $isCredit = $paymentMethod === 'credito';
 
-        $this->validateStock($cart);
         $customer = $this->resolveCustomer($isCredit, $customerId, $total);
 
-        return DB::transaction(function () use ($cart, $total, $paymentMethod, $isCredit, $customer, $userId, $comandaId) {
+        return DB::transaction(function () use ($cart, $total, $rate, $paymentMethod, $isCredit, $customer, $userId, $comandaId) {
+            $this->serializeNumbering('sale_number');
             $saleNumber = $this->nextSaleNumber();
 
             $sale = Sale::create([
@@ -49,6 +56,8 @@ class CheckoutService
                 'total' => $total,
                 'status' => $isCredit ? 'pendiente' : 'completada',
                 'payment_method' => $isCredit ? 'credito' : null,
+                'rate' => $rate,
+                'paid_at' => $isCredit ? null : now(),
             ]);
 
             $this->createSaleItems($sale, $cart);
@@ -77,11 +86,20 @@ class CheckoutService
      * Cierra una comanda ya cobrada por completo, generando la Sale definitiva.
      * Las comanda_payments se agrupan por método (una SalePayment por método).
      * Si todos los pagos son crédito, la venta queda 'pendiente' con cargo a crédito.
+     * Los precios de la comanda (Bs congelados) se conservan tal cual.
      *
      * @throws CheckoutException
      */
     public function closeComanda(Comanda $comanda, int $userId): Sale
     {
+        if ($comanda->status === Comanda::STATUS_COBRADA) {
+            throw new CheckoutException('La comanda ya está cerrada.');
+        }
+
+        if (! $comanda->isFullyCollected()) {
+            throw new CheckoutException('La comanda no está cobrada en su totalidad.');
+        }
+
         $cart = $comanda->items->map(fn ($item) => [
             'product_id' => $item->combo_id ? "combo_{$item->combo_id}" : $item->product_id,
             'name' => $item->product_name,
@@ -93,20 +111,25 @@ class CheckoutService
             throw new CheckoutException('La comanda no tiene productos para cerrar.');
         }
 
-        $total = array_reduce($cart, fn ($sum, $item) => $sum + ((float) $item['price'] * (int) $item['quantity']), 0);
+        $total = round((float) $comanda->items->sum('subtotal'), 2);
 
-        $this->validateStock($cart);
+        $rate = $this->currentRate();
 
         $payments = $comanda->payments;
         $isCredit = $payments->isNotEmpty() && $payments->every(fn ($p) => $p->method === 'credito');
         $customer = null;
 
         if ($isCredit) {
-            $creditPayment = $payments->first();
-            $customer = $this->resolveCustomer(true, $creditPayment->customer_id, $total);
+            $creditCustomers = $payments->where('method', 'credito')->pluck('customer_id')->filter()->unique()->values();
+            if ($creditCustomers->count() > 1) {
+                throw new CheckoutException('La comanda tiene créditos asignados a más de un cliente.');
+            }
+            $customer = $this->resolveCustomer(true, (int) $creditCustomers->first(), $total);
         }
 
-        return DB::transaction(function () use ($cart, $total, $isCredit, $customer, $userId, $payments, $comanda) {
+        return DB::transaction(function () use ($cart, $total, $rate, $isCredit, $customer, $userId, $payments, $comanda) {
+            $this->serializeNumbering('sale_number');
+            $this->lockAndValidateStock($cart);
             $saleNumber = $this->nextSaleNumber();
 
             $sale = Sale::create([
@@ -117,6 +140,8 @@ class CheckoutService
                 'total' => $total,
                 'status' => $isCredit ? 'pendiente' : 'completada',
                 'payment_method' => $isCredit ? 'credito' : null,
+                'rate' => $rate,
+                'paid_at' => $isCredit ? null : now(),
             ]);
 
             $this->createSaleItems($sale, $cart);
@@ -141,30 +166,100 @@ class CheckoutService
         });
     }
 
-    protected function validateStock(array $cart): void
+    /**
+     * Recalcula el carrito con precios y nombres autoritarios desde la BD.
+     * Lanza CheckoutException si un producto/combo no existe o está inactivo.
+     */
+    protected function normalizeCart(array $cart, float $rate): array
+    {
+        if (empty($cart)) {
+            throw new CheckoutException('El carrito está vacío.');
+        }
+
+        $normalized = [];
+
+        foreach ($cart as $item) {
+            $itemId = $item['product_id'];
+            $quantity = (int) ($item['quantity'] ?? 0);
+
+            if ($quantity < 1) {
+                throw new CheckoutException('Cantidad inválida en el carrito.');
+            }
+
+            if (str_starts_with((string) $itemId, 'combo_')) {
+                $combo = Combo::query()->with('products')->find((int) substr((string) $itemId, 6));
+                if (! $combo || ! $combo->is_active) {
+                    throw new CheckoutException('El combo seleccionado no existe o no está activo.');
+                }
+                $normalized[] = [
+                    'product_id' => "combo_{$combo->id}",
+                    'name' => $combo->name,
+                    'price' => Pricing::bs((float) $combo->sale_price, $rate, $combo->round_bs),
+                    'quantity' => $quantity,
+                ];
+            } else {
+                $product = Product::find((int) $itemId);
+                if (! $product || ! $product->is_active) {
+                    throw new CheckoutException('El producto seleccionado no existe o no está activo.');
+                }
+                $normalized[] = [
+                    'product_id' => $product->id,
+                    'name' => $product->name,
+                    'price' => Pricing::bs((float) $product->sale_price, $rate, $product->round_bs),
+                    'quantity' => $quantity,
+                ];
+            }
+        }
+
+        return $normalized;
+    }
+
+    /**
+     * Valida stock dentro de la transacción con locks de escritura sobre las
+     * filas de productos/combos para evitar sobreventa entre requests
+     * concurrentes. Debe ejecutarse dentro de DB::transaction.
+     */
+    protected function lockAndValidateStock(array $cart): void
     {
         foreach ($cart as $item) {
             $itemId = $item['product_id'];
+            $quantity = (int) $item['quantity'];
+
+            if ((string) $itemId === '') {
+                continue;
+            }
 
             if (str_starts_with((string) $itemId, 'combo_')) {
                 $comboId = (int) substr((string) $itemId, 6);
-                $combo = \App\Models\Combo::with('products')->find($comboId);
-                foreach ($combo?->inventariableComponents ?? [] as $component) {
-                    $qtyNeeded = $component->pivot->quantity * (int) $item['quantity'];
-                    if ($component->stock_current < $qtyNeeded) {
+                $combo = Combo::with('inventariableComponents')->lockForUpdate()->find($comboId);
+                if (! $combo) {
+                    throw new CheckoutException('El combo seleccionado no existe.');
+                }
+
+                $components = $combo->inventariableComponents->keyBy('id');
+                $locked = Product::whereKey($components->keys())->lockForUpdate()->get()->keyBy('id');
+
+                foreach ($components as $component) {
+                    $qtyNeeded = $component->pivot->quantity * $quantity;
+                    $stock = (int) ($locked->get($component->id)->stock_current ?? 0);
+                    if ($stock < $qtyNeeded) {
                         throw new CheckoutException(
-                            "Stock insuficiente para '{$component->name}' (componente de {$combo->name}). Disponible: {$component->stock_current}, Necesario: {$qtyNeeded}"
+                            "Stock insuficiente para '{$component->name}' (componente de {$combo->name}). Disponible: {$stock}, Necesario: {$qtyNeeded}"
                         );
                     }
                 }
             } else {
-                $product = Product::find($itemId);
-                if ($product && in_array($product->control_type, ['inventariable', 'produccion'])) {
-                    if ($product->stock_current < (int) $item['quantity']) {
-                        throw new CheckoutException(
-                            "Stock insuficiente para '{$product->name}'. Disponible: {$product->stock_current}"
-                        );
-                    }
+                $product = Product::whereKey($itemId)->lockForUpdate()->first();
+                if (! $product) {
+                    throw new CheckoutException('El producto seleccionado no existe.');
+                }
+                if ($product->control_type === 'demanda') {
+                    continue;
+                }
+                if ($product->stock_current < $quantity) {
+                    throw new CheckoutException(
+                        "Stock insuficiente para '{$product->name}'. Disponible: {$product->stock_current}"
+                    );
                 }
             }
         }
@@ -208,7 +303,7 @@ class CheckoutService
 
             if (str_starts_with((string) $itemId, 'combo_')) {
                 $comboId = (int) substr((string) $itemId, 6);
-                $combo = \App\Models\Combo::with('products')->find($comboId);
+                $combo = Combo::with('inventariableComponents')->find($comboId);
                 $sale->items()->create([
                     'product_id' => null,
                     'combo_id' => $comboId,
@@ -257,12 +352,32 @@ class CheckoutService
 
     protected function currentRate(): float
     {
-        return (float) (ExchangeRate::latest()->first()?->rate ?? 1);
+        $rate = (float) (ExchangeRate::latest()->first()->rate ?? 0);
+
+        if ($rate <= 0) {
+            throw new CheckoutException('No hay una tasa de cambio registrada. Registre la tasa del día antes de procesar ventas.');
+        }
+
+        return $rate;
+    }
+
+    /**
+     * Serializa la generación de números correlativos vía advisory lock de
+     * PostgreSQL (no-op en SQLite, donde los tests corren en un solo proceso).
+     */
+    protected function serializeNumbering(string $scope): void
+    {
+        if (DB::connection()->getDriverName() !== 'pgsql') {
+            return;
+        }
+
+        DB::select('select pg_advisory_xact_lock(?)', [crc32($scope)]);
     }
 
     protected function nextSaleNumber(): string
     {
         $last = (int) Sale::max('id');
+
         return str_pad((string) ($last + 1), 6, '0', STR_PAD_LEFT);
     }
 }

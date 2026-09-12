@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Http\Controllers;
 
 use App\Exceptions\CheckoutException;
@@ -21,22 +23,21 @@ class PosController extends Controller
 {
     public function __construct(
         protected CheckoutService $checkout,
-    ) {
-    }
+    ) {}
 
     public function index(): View
     {
         $categories = Category::orderBy('name')->get();
         $customers = Customer::query()->where('is_active', true)->orderBy('name')->get(['id', 'name']);
 
-        $rate = (float) (ExchangeRate::latest()->first()?->rate ?? 1);
+        $rate = $this->displayRate();
 
         return view('pos.index', compact('categories', 'customers', 'rate'));
     }
 
     public function products(Request $request): JsonResponse
     {
-        $rate = (float) (ExchangeRate::latest()->first()?->rate ?? 1);
+        $rate = $this->displayRate();
         $search = strtolower(trim((string) $request->query('search', '')));
         $categoryId = $request->query('category_id');
 
@@ -90,6 +91,16 @@ class PosController extends Controller
             'total' => $total,
             'rate' => $rate,
         ]);
+    }
+
+    /**
+     * Tasa usada únicamente para mostrar/calcular el catálogo del POS.
+     * No es la fuente autoritaria: CheckoutService::currentRate() exige una
+     * tasa registrada y falla el cobro si no existe (nunca asume 1).
+     */
+    protected function displayRate(): float
+    {
+        return (float) (ExchangeRate::latest()->first()?->rate ?? 1);
     }
 
     public function store(CheckoutRequest $request): JsonResponse
