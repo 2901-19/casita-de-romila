@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Http\Requests\StoreInventoryAdjustmentRequest;
 use App\Models\InventoryAdjustment;
 use App\Models\Product;
+use App\Support\Dates;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
 use Illuminate\Http\RedirectResponse;
@@ -17,8 +18,8 @@ class InventoryController extends Controller
             ->when($request->product_id, fn($q) => $q->where('product_id', $request->product_id))
             ->when($request->type, fn($q) => $q->where('type', $request->type))
             ->when($request->reason, fn($q) => $q->where('reason', $request->reason))
-            ->when($request->filled('from'), fn($q) => $q->whereDate('created_at', '>=', $request->from))
-            ->when($request->filled('to'), fn($q) => $q->whereDate('created_at', '<=', $request->to))
+            ->when(Dates::valid($request->input('from')), fn($q) => $q->whereDate('created_at', '>=', $request->input('from')))
+            ->when(Dates::valid($request->input('to')), fn($q) => $q->whereDate('created_at', '<=', $request->input('to')))
             ->orderByDesc('created_at')
             ->paginate(20)
             ->withQueryString();

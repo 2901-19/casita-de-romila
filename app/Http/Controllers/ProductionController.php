@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Http\Requests\StoreProductionRequest;
 use App\Models\Product;
 use App\Models\Production;
+use App\Support\Dates;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\View\View;
@@ -15,8 +16,8 @@ class ProductionController extends Controller
     {
         $productions = Production::with(['product', 'user'])
             ->when($request->product_id, fn($q) => $q->where('product_id', $request->product_id))
-            ->when($request->filled('from'), fn($q) => $q->whereDate('created_at', '>=', $request->from))
-            ->when($request->filled('to'), fn($q) => $q->whereDate('created_at', '<=', $request->to))
+            ->when(Dates::valid($request->input('from')), fn($q) => $q->whereDate('created_at', '>=', $request->input('from')))
+            ->when(Dates::valid($request->input('to')), fn($q) => $q->whereDate('created_at', '<=', $request->input('to')))
             ->orderByDesc('created_at')
             ->paginate(20)
             ->withQueryString();

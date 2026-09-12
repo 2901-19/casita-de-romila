@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 use App\Http\Requests\StoreMermaRequest;
 use App\Models\Merma;
 use App\Models\Product;
+use App\Support\Dates;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
 use Illuminate\Support\Facades\DB;
@@ -17,8 +18,8 @@ class MermaController extends Controller
             ->when($request->type === 'merma', fn($q) => $q->mermaType())
             ->when($request->type === 'consumo', fn($q) => $q->consumption())
             ->when($request->reason, fn($q) => $q->where('reason', $request->reason))
-            ->when($request->filled('from'), fn($q) => $q->whereDate('created_at', '>=', $request->from))
-            ->when($request->filled('to'), fn($q) => $q->whereDate('created_at', '<=', $request->to))
+            ->when(Dates::valid($request->input('from')), fn($q) => $q->whereDate('created_at', '>=', $request->input('from')))
+            ->when(Dates::valid($request->input('to')), fn($q) => $q->whereDate('created_at', '<=', $request->input('to')))
             ->orderByDesc('created_at')
             ->paginate(20)
             ->withQueryString();
