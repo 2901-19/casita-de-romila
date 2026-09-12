@@ -6,6 +6,12 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
+/**
+ * @property int $id
+ * @property string $method
+ * @property int|null $customer_id
+ * @property string $amount
+ */
 class ComandaPayment extends Model
 {
     use HasFactory;

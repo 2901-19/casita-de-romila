@@ -7,6 +7,17 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
+/**
+ * @property int $id
+ * @property string $comanda_number
+ * @property string $status
+ * @property string|null $customer_name
+ * @property int|null $user_id
+ * @property int|null $sale_id
+ * @property string|null $total
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, ComandaItem> $items
+ * @property-read \Illuminate\Database\Eloquent\Collection<int, ComandaPayment> $payments
+ */
 class Comanda extends Model
 {
     use HasFactory;
@@ -43,11 +54,17 @@ class Comanda extends Model
         return $this->belongsTo(Sale::class);
     }
 
+    /**
+     * @return HasMany<ComandaItem, $this>
+     */
     public function items(): HasMany
     {
         return $this->hasMany(ComandaItem::class);
     }
 
+    /**
+     * @return HasMany<ComandaPayment, $this>
+     */
     public function payments(): HasMany
     {
         return $this->hasMany(ComandaPayment::class);
@@ -80,7 +97,7 @@ class Comanda extends Model
 
     public function getTotalUsdAttribute(): float
     {
-        $rate = (float) (ExchangeRate::latest()->first()?->rate ?? 1);
+        $rate = (float) (ExchangeRate::latest()->first()->rate ?? 1);
         return $rate > 0 ? round((float) $this->total / $rate, 2) : 0;
     }
 

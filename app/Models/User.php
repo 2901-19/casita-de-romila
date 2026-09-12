@@ -7,6 +7,14 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 
+/**
+ * @property int $id
+ * @property string $name
+ * @property string $username
+ * @property int|null $role_id
+ * @property bool $is_active
+ * @property-read Role|null $role
+ */
 class User extends Authenticatable
 {
     use HasFactory, Notifiable;
@@ -38,6 +46,9 @@ class User extends Authenticatable
         $this->attributes['username'] = strtolower(trim((string) $value));
     }
 
+    /**
+     * @return BelongsTo<Role, $this>
+     */
     public function role(): BelongsTo
     {
         return $this->belongsTo(Role::class);

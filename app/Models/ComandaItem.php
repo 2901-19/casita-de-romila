@@ -6,6 +6,20 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
+/**
+ * @property int $id
+ * @property int|null $product_id
+ * @property int|null $combo_id
+ * @property string $product_name
+ * @property string $order_type
+ * @property string|null $note
+ * @property int $quantity
+ * @property string $unit_price
+ * @property string $subtotal
+ * @property int $delivered_quantity
+ * @property \Illuminate\Support\Carbon|null $delivered_at
+ * @property bool $collected
+ */
 class ComandaItem extends Model
 {
     use HasFactory;

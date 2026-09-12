@@ -1,0 +1,20 @@
+includes:
+    - vendor/larastan/larastan/extension.neon
+
+parameters:
+    paths:
+        - app/Services
+        - app/Support
+        - app/Exceptions
+        - app/Models/Comanda.php
+        - app/Models/ComandaItem.php
+        - app/Models/ComandaPayment.php
+        - app/Models/Combo.php
+        - app/Models/ComboProduct.php
+        - app/Models/Product.php
+        - app/Models/ExchangeRate.php
+        - app/Models/User.php
+        - app/Models/Sale.php
+    level: 5
+    tmpDir: storage/framework/cache/phpstan
+    checkExplicitMixed: false
