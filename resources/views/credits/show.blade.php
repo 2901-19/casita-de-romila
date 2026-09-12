@@ -60,7 +60,7 @@
                             <tr>
                                 <th>Venta</th>
                                 <th>Fecha</th>
-                                <th class="text-end">Total (Bs)</th>
+                                <th class="text-end">Deuda (Bs)</th>
                                 <th class="text-end">Deuda (USD)</th>
                                 <th>Estado</th>
                                 <th class="text-end">Acción</th>
@@ -74,7 +74,9 @@
                                     <span class="d-block text-muted small">{{ $cs->items->count() }} {{ $cs->items->count() === 1 ? 'producto' : 'productos' }}</span>
                                 </td>
                                 <td class="text-muted text-nowrap">{{ $cs->created_at->format('d/m/Y') }}</td>
-                                <td class="text-end num">Bs {{ number_format($cs->total, 2, ',', '.') }}</td>
+                                <td class="text-end num {{ $cs->status === 'pendiente' ? 'text-danger fw-semibold' : 'text-muted' }}">
+                                    Bs {{ number_format(round((float) $outstandingMap[$cs->id] * $rate, 2), 2, ',', '.') }}
+                                </td>
                                 <td class="text-end num {{ $cs->status === 'pendiente' ? 'text-danger fw-semibold' : 'text-muted' }}">
                                     {{ $cs->status === 'completada' && $outstandingMap[$cs->id] <= 0 ? '$ 0,00' : ('$ ' . number_format($outstandingMap[$cs->id], 2, ',', '.')) }}
                                 </td>

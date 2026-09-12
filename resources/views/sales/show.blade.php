@@ -51,7 +51,7 @@
                 @endif
 
                 <div class="table-responsive">
-                    <table class="table align-middle">
+                    <table class="table align-middle mb-0">
                         <thead>
                             <tr>
                                 <th>Producto</th>
@@ -78,6 +78,12 @@
                         </tfoot>
                     </table>
                 </div>
+                <p class="small text-muted mb-0 mt-2">
+                    <i class="bi bi-tag me-1"></i> Montos en Bs congelados a la tasa del día de la venta
+                    @if($sale->rate)
+                        (tasa {{ number_format($sale->rate, 2, ',', '.') }}) · ≈ $ {{ number_format($sale->items->sum('subtotal') / $sale->rate, 2, ',', '.') }} USD
+                    @endif
+                </p>
             </div>
         </div>
     </div>
@@ -118,25 +124,45 @@
         <div class="card">
             <div class="card-body">
                 <h3 class="card-title mb-3">Pagos</h3>
+                @php($methods = ['efectivo' => 'Efectivo', 'biopago' => 'Biopago', 'transferencia' => 'Transferencia', 'pago_movil' => 'Pago Móvil', 'pdv' => 'PDV', 'credito' => 'Crédito'])
                 @if($sale->payment_method === 'credito')
-                    @can('manage-credits')
-                    <a class="btn btn-sm btn-outline-brand"
-                       href="{{ route('credits.show', $sale->customer) }}">
-                        <i class="bi bi-journal-bookmark me-1"></i> Registrar pago
-                    </a>
+                    @if($sale->paid_at && $sale->payments->isNotEmpty())
+                        @foreach($sale->payments as $payment)
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <div>
+                                <span class="badge-soft success">{{ $methods[$payment->method] ?? $payment->method }}</span>
+                            </div>
+                            <strong>Bs {{ number_format($payment->amount, 2, ',', '.') }}</strong>
+                        </div>
+                        @endforeach
+                        <p class="small text-muted mb-0 mt-2">
+                            <i class="bi bi-check2-circle me-1"></i> Cobrado el {{ $sale->paid_at->format('d/m/Y h:i a') }}
+                            @if($sale->paid_at && $sale->created_at->toDateString() !== $sale->paid_at->toDateString())
+                                · Bs del día del cobro
+                            @endif
+                        </p>
                     @else
-                    <span class="badge-soft warning">Pago pendiente (crédito)</span>
-                    @endcan
+                        @can('manage-credits')
+                        <a class="btn btn-sm btn-outline-brand"
+                           href="{{ route('credits.show', $sale->customer) }}">
+                            <i class="bi bi-journal-bookmark me-1"></i> Registrar pago
+                        </a>
+                        @else
+                        <span class="badge-soft warning">Pago pendiente (crédito)</span>
+                        @endcan
+                    @endif
                 @else
                     @foreach($sale->payments as $payment)
                     <div class="d-flex justify-content-between align-items-center mb-2">
                         <div>
-                            @php($methods = ['efectivo' => 'Efectivo', 'biopago' => 'Biopago', 'transferencia' => 'Transferencia', 'pago_movil' => 'Pago Móvil', 'pdv' => 'PDV'])
                             <span class="badge-soft muted">{{ $methods[$payment->method] ?? $payment->method }}</span>
                         </div>
                         <strong>Bs {{ number_format($payment->amount, 2, ',', '.') }}</strong>
                     </div>
                     @endforeach
+                    <p class="small text-muted mb-0 mt-2">
+                        <i class="bi bi-tag me-1"></i> Montos en Bs a la tasa del día de la venta
+                    </p>
                 @endif
             </div>
         </div>

@@ -1,21 +1,27 @@
 <?php
+
+declare(strict_types=1);
+
 namespace App\Http\Controllers;
 
 use App\Models\Combo;
+use App\Models\CreditMovement;
+use App\Models\Customer;
 use App\Models\ExchangeRate;
 use App\Models\Sale;
+use App\Support\Dates;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
-use Illuminate\Http\RedirectResponse;
 
 class SalesController extends Controller
 {
     public function index(Request $request): View
     {
         $sales = Sale::with(['user', 'payments', 'items'])
-            ->when($request->status, fn($q) => $q->where('status', $request->status))
-            ->when($request->filled('from'), fn($q) => $q->whereDate('created_at', '>=', $request->from))
-            ->when($request->filled('to'), fn($q) => $q->whereDate('created_at', '<=', $request->to))
+            ->when($request->status, fn ($q) => $q->where('status', $request->status))
+            ->when(Dates::valid($request->input('from')), fn ($q) => $q->whereDate('created_at', '>=', $request->input('from')))
+            ->when(Dates::valid($request->input('to')), fn ($q) => $q->whereDate('created_at', '<=', $request->input('to')))
             ->orderByDesc('created_at')
             ->paginate(20)
             ->withQueryString();
@@ -26,6 +32,7 @@ class SalesController extends Controller
     public function show(Sale $sale): View
     {
         $sale->load(['user', 'payments', 'items.product']);
+
         return view('sales.show', compact('sale'));
     }
 
@@ -39,7 +46,9 @@ class SalesController extends Controller
             'cancel_reason' => ['required', 'string', 'max:255'],
         ]);
 
-        \DB::transaction(function () use ($sale, $request) {
+        $revertedToPending = false;
+
+        \DB::transaction(function () use ($sale, $request, &$revertedToPending) {
             foreach ($sale->items as $item) {
                 $product = $item->product;
                 if ($product && in_array($product->control_type, ['inventariable', 'produccion'])) {
@@ -57,13 +66,35 @@ class SalesController extends Controller
                 }
             }
 
-            if ($sale->customer_id && in_array($sale->status, ['pendiente', 'completada'])) {
+            $isPaidCredit = $sale->payment_method === 'credito' && $sale->status === 'completada';
+
+            if ($isPaidCredit) {
+                // Crédito que ya fue cobrado: se revierte el pago y la venta
+                // vuelve a 'pendiente' (el cliente recupera su deuda). El cargo
+                // original se conserva; solo se elimina el movimiento 'pago'.
+                $paidUsd = (float) $sale->creditMovements()->where('type', 'pago')->sum('amount');
+
+                if ($paidUsd > 0) {
+                    $sale->creditMovements()->where('type', 'pago')->delete();
+                    Customer::find($sale->customer_id)?->decrement('balance', $paidUsd);
+                }
+
+                $sale->update([
+                    'status' => 'pendiente',
+                    'paid_at' => null,
+                    'cancel_reason' => null,
+                    'canceled_by' => null,
+                    'canceled_at' => null,
+                ]);
+
+                $revertedToPending = true;
+            } elseif ($sale->customer_id && $sale->status === 'pendiente') {
                 $outstanding = $sale->outstanding_usd;
 
                 if ($outstanding > 0) {
                     $rate = (float) (ExchangeRate::latest()->first()?->rate ?? 1);
 
-                    \App\Models\CreditMovement::create([
+                    CreditMovement::create([
                         'customer_id' => $sale->customer_id,
                         'sale_id' => $sale->id,
                         'user_id' => $request->user()->id,
@@ -73,20 +104,27 @@ class SalesController extends Controller
                         'notes' => "Reversa por anulación de venta #{$sale->id}",
                     ]);
 
-                    \App\Models\Customer::find($sale->customer_id)?->increment('balance', $outstanding);
+                    Customer::find($sale->customer_id)?->increment('balance', $outstanding);
                 }
             }
 
-            $sale->update([
-                'status' => 'anulada',
-                'cancel_reason' => $request->cancel_reason,
-                'canceled_by' => $request->user()->id,
-                'canceled_at' => now(),
-            ]);
+            // Los pagos de una venta anulada dejan de contar como ingresos.
+            $sale->payments()->delete();
+
+            if (! $revertedToPending) {
+                $sale->update([
+                    'status' => 'anulada',
+                    'cancel_reason' => $request->cancel_reason,
+                    'canceled_by' => $request->user()->id,
+                    'canceled_at' => now(),
+                ]);
+            }
         });
 
         return redirect()
             ->route('sales.index')
-            ->with('success', 'Venta anulada. Stock restaurado.');
+            ->with('success', $revertedToPending
+                ? 'Pago del crédito revertido; el crédito vuelve a pendiente. Stock restaurado.'
+                : 'Venta anulada. Stock restaurado.');
     }
 }

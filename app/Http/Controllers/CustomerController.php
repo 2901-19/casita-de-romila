@@ -1,24 +1,29 @@
 <?php
 
+declare(strict_types=1);
+
 namespace App\Http\Controllers;
 
+use App\Exceptions\CheckoutException;
 use App\Http\Requests\StoreCustomerRequest;
-use App\Models\Customer;
 use App\Models\CreditMovement;
+use App\Models\Customer;
 use App\Models\ExchangeRate;
 use App\Models\Sale;
+use App\Models\SalePayment;
+use App\Support\Like;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\View\View;
-use Illuminate\Http\RedirectResponse;
 
 class CustomerController extends Controller
 {
     public function index(Request $request): View
     {
-        $customers = Customer::when($request->filled('search'), fn($q) => $q->where('name', 'like', '%' . $request->search . '%'))
-            ->when($request->status === 'deuda', fn($q) => $q->where('balance', '<', 0))
-            ->when($request->status === 'favor', fn($q) => $q->where('balance', '>', 0))
+        $customers = Customer::when($request->filled('search'), fn ($q) => Like::apply($q, 'name', (string) $request->search))
+            ->when($request->status === 'deuda', fn ($q) => $q->where('balance', '<', 0))
+            ->when($request->status === 'favor', fn ($q) => $q->where('balance', '>', 0))
             ->orderBy('name')
             ->paginate(20)
             ->withQueryString();
@@ -85,23 +90,38 @@ class CustomerController extends Controller
 
         try {
             DB::transaction(function () use ($sale, $customer, $request) {
+                $locked = Sale::whereKey($sale->id)->lockForUpdate()->first();
+
+                if (! $locked || $locked->customer_id !== $customer->id
+                    || $locked->status !== 'pendiente' || $locked->paid_at !== null) {
+                    throw new CheckoutException('Este crédito ya fue cobrado.');
+                }
+
                 $rate = (float) (ExchangeRate::latest()->first()?->rate ?? 1);
-                $outstanding = round((float) $sale->outstanding_usd, 2);
+                $outstanding = round((float) $locked->outstanding_usd, 2);
 
                 CreditMovement::create([
                     'customer_id' => $customer->id,
-                    'sale_id' => $sale->id,
+                    'sale_id' => $locked->id,
                     'user_id' => $request->user()->id,
                     'type' => 'pago',
                     'amount' => $outstanding,
-                    'notes' => "Pago de venta #{$sale->id}",
+                    'notes' => "Pago de venta #{$locked->id}",
                     'rate' => $rate,
                 ]);
 
+                SalePayment::create([
+                    'sale_id' => $locked->id,
+                    'method' => 'credito',
+                    'amount' => round($outstanding * $rate, 2),
+                ]);
+
                 $customer->increment('balance', $outstanding);
-                $sale->update(['status' => 'completada']);
+                $locked->update(['status' => 'completada', 'paid_at' => now()]);
             });
-        } catch (\Exception $e) {
+        } catch (CheckoutException $e) {
+            return redirect()->route('credits.show', $customer)->with('error', $e->getMessage());
+        } catch (\Throwable $e) {
             return redirect()->route('credits.show', $customer)->with('error', 'Error al registrar el pago.');
         }
 

@@ -170,13 +170,13 @@ class CreditTest extends TestCase
         ]);
     }
 
-    private function createCreditSale(Customer $customer, float $priceBs = 1000.00): Sale
+    private function createCreditSale(Customer $customer, float $priceUsd = 10.0): Sale
     {
         ExchangeRate::factory()->create(['rate' => 100]);
-        $product = Product::factory()->create(['control_type' => 'demanda', 'sale_price' => 10]);
+        $product = Product::factory()->create(['control_type' => 'demanda', 'sale_price' => $priceUsd]);
 
         $this->postJson('/pos', [
-            'cart' => [['product_id' => $product->id, 'name' => $product->name, 'price' => $priceBs, 'quantity' => 1]],
+            'cart' => [['product_id' => $product->id, 'quantity' => 1]],
             'payment_method' => 'credito',
             'customer_id' => $customer->id,
         ])->assertStatus(200);
@@ -189,7 +189,7 @@ class CreditTest extends TestCase
         $user = User::factory()->gerente()->create();
         $this->actingAs($user);
         $customer = Customer::factory()->create();
-        $sale = $this->createCreditSale($customer, 1000.00);
+        $sale = $this->createCreditSale($customer, 10.0);
 
         $this->assertEquals('pendiente', $sale->status);
 
@@ -199,9 +199,16 @@ class CreditTest extends TestCase
 
         $sale->refresh();
         $this->assertEquals('completada', $sale->status);
+        $this->assertNotNull($sale->paid_at);
 
         $customer->refresh();
         $this->assertEquals(0.00, (float) $customer->balance);
+
+        $this->assertDatabaseHas('sale_payments', [
+            'sale_id' => $sale->id,
+            'method' => 'credito',
+            'amount' => 1000.00,
+        ]);
 
         $this->assertDatabaseHas('credit_movements', [
             'sale_id' => $sale->id,
@@ -216,7 +223,7 @@ class CreditTest extends TestCase
         $user = User::factory()->gerente()->create();
         $this->actingAs($user);
         $customer = Customer::factory()->create();
-        $sale = $this->createCreditSale($customer, 1000.00);
+        $sale = $this->createCreditSale($customer, 10.0);
 
         $this->post("/credits/{$customer->id}/credits/{$sale->id}/pay")->assertSessionHas('success');
         $this->post("/credits/{$customer->id}/credits/{$sale->id}/pay")->assertSessionHas('error');
@@ -232,7 +239,7 @@ class CreditTest extends TestCase
         $this->actingAs($user);
         $owner = Customer::factory()->create();
         $other = Customer::factory()->create();
-        $sale = $this->createCreditSale($owner, 1000.00);
+        $sale = $this->createCreditSale($owner, 10.0);
 
         $this->post("/credits/{$other->id}/credits/{$sale->id}/pay")->assertSessionHas('error');
 
@@ -245,8 +252,8 @@ class CreditTest extends TestCase
         $user = User::factory()->gerente()->create();
         $this->actingAs($user);
         $customer = Customer::factory()->create();
-        $first = $this->createCreditSale($customer, 1000.00);
-        $second = $this->createCreditSale($customer, 500.00);
+        $first = $this->createCreditSale($customer, 10.0);
+        $second = $this->createCreditSale($customer, 5.0);
 
         $this->post("/credits/{$customer->id}/credits/{$first->id}/pay")->assertSessionHas('success');
 
@@ -262,7 +269,7 @@ class CreditTest extends TestCase
         $user = User::factory()->gerente()->create();
         $this->actingAs($user);
         $customer = Customer::factory()->create();
-        $sale = $this->createCreditSale($customer, 1000.00);
+        $sale = $this->createCreditSale($customer, 10.0);
 
         $customer->refresh();
         $this->assertEquals(-10.00, (float) $customer->balance);
@@ -283,5 +290,60 @@ class CreditTest extends TestCase
 
         $customer->refresh();
         $this->assertEquals(0.00, (float) $customer->balance);
+    }
+
+    public function test_voiding_a_paid_credit_reopens_it_as_pending(): void
+    {
+        $user = User::factory()->gerente()->create();
+        $this->actingAs($user);
+
+        $customer = Customer::factory()->create();
+        ExchangeRate::factory()->create(['rate' => 100]);
+        $product = Product::factory()->create([
+            'control_type' => 'inventariable',
+            'sale_price' => 10,
+            'stock_current' => 5,
+        ]);
+
+        $this->postJson('/pos', [
+            'cart' => [['product_id' => $product->id, 'quantity' => 1]],
+            'payment_method' => 'credito',
+            'customer_id' => $customer->id,
+        ])->assertStatus(200);
+
+        $product->refresh();
+        $this->assertEquals(4, $product->stock_current);
+
+        $sale = Sale::latest('id')->first();
+        $this->assertEquals('pendiente', $sale->status);
+
+        $this->post("/credits/{$customer->id}/credits/{$sale->id}/pay")->assertSessionHas('success');
+
+        $sale->refresh();
+        $customer->refresh();
+        $this->assertEquals('completada', $sale->status);
+        $this->assertEquals(0.00, (float) $customer->balance);
+        $this->assertNotNull($sale->paid_at);
+        $this->assertDatabaseHas('sale_payments', ['sale_id' => $sale->id, 'method' => 'credito']);
+        $this->assertDatabaseHas('credit_movements', ['sale_id' => $sale->id, 'type' => 'pago', 'amount' => 10.00]);
+
+        $response = $this->delete("/sales/{$sale->id}", ['cancel_reason' => 'Revertir cobro erróneo']);
+
+        $response->assertSessionHas('success');
+
+        $sale->refresh();
+        $customer->refresh();
+
+        $this->assertEquals('pendiente', $sale->status);
+        $this->assertNull($sale->paid_at);
+
+        $this->assertEquals(-10.00, (float) $customer->balance);
+        $this->assertDatabaseMissing('credit_movements', ['sale_id' => $sale->id, 'type' => 'pago']);
+        $this->assertDatabaseMissing('credit_movements', ['sale_id' => $sale->id, 'type' => 'abono']);
+        $this->assertDatabaseHas('credit_movements', ['sale_id' => $sale->id, 'type' => 'cargo', 'amount' => 10.00]);
+        $this->assertDatabaseMissing('sale_payments', ['sale_id' => $sale->id]);
+
+        $product->refresh();
+        $this->assertEquals(5, $product->stock_current);
     }
 }

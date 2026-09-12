@@ -48,7 +48,7 @@ class SalesTest extends TestCase
         $response = $this->get('/sales');
 
         $response->assertStatus(200);
-        $response->assertSee('#' . $sale->id);
+        $response->assertSee('#'.$sale->id);
         $response->assertSee('1 producto');
         $response->assertSee('Bs 10,00');
     }
@@ -81,8 +81,8 @@ class SalesTest extends TestCase
         $response = $this->get('/sales?status=completada');
 
         $response->assertStatus(200);
-        $response->assertSee('#' . $sale1->id);
-        $response->assertDontSee('#' . $sale2->id);
+        $response->assertSee('#'.$sale1->id);
+        $response->assertDontSee('#'.$sale2->id);
     }
 
     public function test_filter_by_status_anulada(): void
@@ -130,6 +130,7 @@ class SalesTest extends TestCase
         $this->assertEquals('anulada', $sale->status);
         $this->assertEquals('Error en venta', $sale->cancel_reason);
         $this->assertEquals(25, $product->stock_current);
+        $this->assertDatabaseMissing('sale_payments', ['sale_id' => $sale->id]);
     }
 
     public function test_cannot_anulate_already_anulada(): void
