@@ -7,6 +7,7 @@ use App\Models\Customer;
 use App\Models\ExchangeRate;
 use App\Models\Product;
 use App\Models\Sale;
+use App\Models\SalePayment;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -193,7 +194,7 @@ class CreditTest extends TestCase
 
         $this->assertEquals('pendiente', $sale->status);
 
-        $response = $this->post("/credits/{$customer->id}/credits/{$sale->id}/pay");
+        $response = $this->post("/credits/{$customer->id}/credits/{$sale->id}/pay", ['payment_method' => 'efectivo']);
 
         $response->assertSessionHas('success');
 
@@ -206,7 +207,7 @@ class CreditTest extends TestCase
 
         $this->assertDatabaseHas('sale_payments', [
             'sale_id' => $sale->id,
-            'method' => 'credito',
+            'method' => 'efectivo',
             'amount' => 1000.00,
         ]);
 
@@ -218,6 +219,134 @@ class CreditTest extends TestCase
         ]);
     }
 
+    public function test_pays_partial_credit_keeps_sale_pending(): void
+    {
+        $user = User::factory()->gerente()->create();
+        $this->actingAs($user);
+        $customer = Customer::factory()->create();
+        $sale = $this->createCreditSale($customer, 10.0);
+
+        $response = $this->post("/credits/{$customer->id}/credits/{$sale->id}/pay", ['amount_bs' => 400.00, 'payment_method' => 'efectivo']);
+
+        $response->assertSessionHas('success');
+
+        $sale->refresh();
+        $this->assertEquals('pendiente', $sale->status);
+        $this->assertNull($sale->paid_at);
+
+        $customer->refresh();
+        $this->assertEquals(-6.00, (float) $customer->balance);
+
+        $this->assertDatabaseHas('sale_payments', [
+            'sale_id' => $sale->id,
+            'method' => 'efectivo',
+            'amount' => 400.00,
+        ]);
+
+        $this->assertDatabaseHas('credit_movements', [
+            'sale_id' => $sale->id,
+            'type' => 'pago',
+            'amount' => 4.00,
+        ]);
+    }
+
+    public function test_partial_then_full_payment_settles_sale(): void
+    {
+        $user = User::factory()->gerente()->create();
+        $this->actingAs($user);
+        $customer = Customer::factory()->create();
+        $sale = $this->createCreditSale($customer, 10.0);
+
+        $this->post("/credits/{$customer->id}/credits/{$sale->id}/pay", ['amount_bs' => 400.00, 'payment_method' => 'efectivo'])->assertSessionHas('success');
+        $this->post("/credits/{$customer->id}/credits/{$sale->id}/pay", ['amount_bs' => 600.00, 'payment_method' => 'efectivo'])->assertSessionHas('success');
+
+        $sale->refresh();
+        $this->assertEquals('completada', $sale->status);
+        $this->assertNotNull($sale->paid_at);
+
+        $customer->refresh();
+        $this->assertEquals(0.00, (float) $customer->balance);
+
+        $this->assertEquals(2, CreditMovement::where('type', 'pago')->count());
+    }
+
+    public function test_full_payment_above_outstanding_is_capped(): void
+    {
+        $user = User::factory()->gerente()->create();
+        $this->actingAs($user);
+        $customer = Customer::factory()->create();
+        $sale = $this->createCreditSale($customer, 10.0);
+
+        $this->post("/credits/{$customer->id}/credits/{$sale->id}/pay", ['amount_bs' => 1500.00, 'payment_method' => 'efectivo'])->assertSessionHas('success');
+
+        $sale->refresh();
+        $customer->refresh();
+        $this->assertEquals('completada', $sale->status);
+        $this->assertEquals(0.00, (float) $customer->balance);
+
+        $this->assertDatabaseHas('sale_payments', [
+            'sale_id' => $sale->id,
+            'method' => 'efectivo',
+            'amount' => 1000.00,
+        ]);
+
+        $this->assertDatabaseHas('credit_movements', [
+            'sale_id' => $sale->id,
+            'type' => 'pago',
+            'amount' => 10.00,
+        ]);
+
+        $this->assertEquals(1, CreditMovement::where('type', 'pago')->count());
+    }
+
+    public function test_pay_credit_validates_amount(): void
+    {
+        $user = User::factory()->gerente()->create();
+        $this->actingAs($user);
+        $customer = Customer::factory()->create();
+        $sale = $this->createCreditSale($customer, 10.0);
+
+        $this->post("/credits/{$customer->id}/credits/{$sale->id}/pay", ['amount_bs' => 0, 'payment_method' => 'efectivo'])->assertSessionHasErrors('amount_bs');
+        $this->post("/credits/{$customer->id}/credits/{$sale->id}/pay", ['amount_bs' => -5, 'payment_method' => 'efectivo'])->assertSessionHasErrors('amount_bs');
+        $this->post("/credits/{$customer->id}/credits/{$sale->id}/pay", ['amount_bs' => 'abc', 'payment_method' => 'efectivo'])->assertSessionHasErrors('amount_bs');
+
+        $sale->refresh();
+        $this->assertEquals('pendiente', $sale->status);
+        $this->assertEquals(0, CreditMovement::where('type', 'pago')->count());
+        $this->assertEquals(0, SalePayment::where('sale_id', $sale->id)->count());
+    }
+
+    public function test_pay_credit_stores_selected_method(): void
+    {
+        $user = User::factory()->gerente()->create();
+        $this->actingAs($user);
+        $customer = Customer::factory()->create();
+        $sale = $this->createCreditSale($customer, 10.0);
+
+        $this->post("/credits/{$customer->id}/credits/{$sale->id}/pay", ['payment_method' => 'transferencia'])->assertSessionHas('success');
+
+        $this->assertDatabaseHas('sale_payments', [
+            'sale_id' => $sale->id,
+            'method' => 'transferencia',
+            'amount' => 1000.00,
+        ]);
+    }
+
+    public function test_pay_credit_requires_method(): void
+    {
+        $user = User::factory()->gerente()->create();
+        $this->actingAs($user);
+        $customer = Customer::factory()->create();
+        $sale = $this->createCreditSale($customer, 10.0);
+
+        $this->post("/credits/{$customer->id}/credits/{$sale->id}/pay")->assertSessionHasErrors('payment_method');
+        $this->post("/credits/{$customer->id}/credits/{$sale->id}/pay", ['payment_method' => 'tarjeta'])->assertSessionHasErrors('payment_method');
+
+        $sale->refresh();
+        $this->assertEquals('pendiente', $sale->status);
+        $this->assertEquals(0, CreditMovement::where('type', 'pago')->count());
+    }
+
     public function test_cannot_pay_credit_twice(): void
     {
         $user = User::factory()->gerente()->create();
@@ -225,8 +354,8 @@ class CreditTest extends TestCase
         $customer = Customer::factory()->create();
         $sale = $this->createCreditSale($customer, 10.0);
 
-        $this->post("/credits/{$customer->id}/credits/{$sale->id}/pay")->assertSessionHas('success');
-        $this->post("/credits/{$customer->id}/credits/{$sale->id}/pay")->assertSessionHas('error');
+        $this->post("/credits/{$customer->id}/credits/{$sale->id}/pay", ['payment_method' => 'efectivo'])->assertSessionHas('success');
+        $this->post("/credits/{$customer->id}/credits/{$sale->id}/pay", ['payment_method' => 'efectivo'])->assertSessionHas('error');
 
         $this->assertEquals(1, CreditMovement::where('type', 'pago')->count());
         $customer->refresh();
@@ -241,7 +370,7 @@ class CreditTest extends TestCase
         $other = Customer::factory()->create();
         $sale = $this->createCreditSale($owner, 10.0);
 
-        $this->post("/credits/{$other->id}/credits/{$sale->id}/pay")->assertSessionHas('error');
+        $this->post("/credits/{$other->id}/credits/{$sale->id}/pay", ['payment_method' => 'efectivo'])->assertSessionHas('error');
 
         $sale->refresh();
         $this->assertEquals('pendiente', $sale->status);
@@ -255,7 +384,7 @@ class CreditTest extends TestCase
         $first = $this->createCreditSale($customer, 10.0);
         $second = $this->createCreditSale($customer, 5.0);
 
-        $this->post("/credits/{$customer->id}/credits/{$first->id}/pay")->assertSessionHas('success');
+        $this->post("/credits/{$customer->id}/credits/{$first->id}/pay", ['payment_method' => 'efectivo'])->assertSessionHas('success');
 
         $second->refresh();
         $this->assertEquals('pendiente', $second->status);
@@ -317,14 +446,14 @@ class CreditTest extends TestCase
         $sale = Sale::latest('id')->first();
         $this->assertEquals('pendiente', $sale->status);
 
-        $this->post("/credits/{$customer->id}/credits/{$sale->id}/pay")->assertSessionHas('success');
+        $this->post("/credits/{$customer->id}/credits/{$sale->id}/pay", ['payment_method' => 'efectivo'])->assertSessionHas('success');
 
         $sale->refresh();
         $customer->refresh();
         $this->assertEquals('completada', $sale->status);
         $this->assertEquals(0.00, (float) $customer->balance);
         $this->assertNotNull($sale->paid_at);
-        $this->assertDatabaseHas('sale_payments', ['sale_id' => $sale->id, 'method' => 'credito']);
+        $this->assertDatabaseHas('sale_payments', ['sale_id' => $sale->id, 'method' => 'efectivo']);
         $this->assertDatabaseHas('credit_movements', ['sale_id' => $sale->id, 'type' => 'pago', 'amount' => 10.00]);
 
         $response = $this->delete("/sales/{$sale->id}", ['cancel_reason' => 'Revertir cobro erróneo']);

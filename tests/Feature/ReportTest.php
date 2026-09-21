@@ -2,7 +2,9 @@
 
 namespace Tests\Feature;
 
-use App\Models\Category;
+use App\Models\Combo;
+use App\Models\CreditMovement;
+use App\Models\Customer;
 use App\Models\ExchangeRate;
 use App\Models\Merma;
 use App\Models\Product;
@@ -127,6 +129,12 @@ class ReportTest extends TestCase
             'total' => 320.00,
             'created_at' => now(),
         ]);
+        SalePayment::factory()->create([
+            'sale_id' => $creditSale->id,
+            'method' => 'transferencia',
+            'amount' => 320.00,
+            'created_at' => now(),
+        ]);
 
         $cashSale = Sale::factory()->create([
             'user_id' => $user->id,
@@ -144,8 +152,64 @@ class ReportTest extends TestCase
 
         $response->assertStatus(200);
         $response->assertViewHas('totalRevenue', fn ($t) => abs((float) $t - 500.0) < 0.01);
-        $response->assertSee('Credito');
+        $response->assertSee('Crédito');
         $response->assertSee('320,00');
+    }
+
+    public function test_sales_report_counts_partial_credit_collection_on_collection_day(): void
+    {
+        $user = $this->gerente();
+        $this->actingAs($user);
+        ExchangeRate::factory()->create(['rate' => 100]);
+
+        $creditSale = Sale::factory()->create([
+            'user_id' => $user->id,
+            'status' => 'pendiente',
+            'payment_method' => 'credito',
+            'total' => 1000.00,
+            'created_at' => now(),
+        ]);
+        SalePayment::factory()->create([
+            'sale_id' => $creditSale->id,
+            'method' => 'efectivo',
+            'amount' => 400.00,
+            'created_at' => now(),
+        ]);
+
+        $response = $this->get('/reports/sales');
+
+        $response->assertStatus(200);
+        $response->assertViewHas('totalRevenue', fn ($t) => abs((float) $t - 400.0) < 0.01);
+        $response->assertViewHas('totalUsd', fn ($u) => abs((float) $u - 4.0) < 0.01);
+        $response->assertSee('400,00');
+        $response->assertDontSee('1000,00');
+        $response->assertSee('Efectivo');
+    }
+
+    public function test_sales_report_counts_collection_of_older_sale_today(): void
+    {
+        $user = $this->gerente();
+        $this->actingAs($user);
+
+        $oldSale = Sale::factory()->create([
+            'user_id' => $user->id,
+            'status' => 'pendiente',
+            'payment_method' => 'credito',
+            'total' => 750.00,
+            'created_at' => now()->subWeek(),
+        ]);
+        SalePayment::factory()->create([
+            'sale_id' => $oldSale->id,
+            'method' => 'transferencia',
+            'amount' => 500.00,
+            'created_at' => now(),
+        ]);
+
+        $response = $this->get('/reports/sales');
+
+        $response->assertStatus(200);
+        $response->assertViewHas('totalRevenue', fn ($t) => abs((float) $t - 500.0) < 0.01);
+        $response->assertSee('500,00');
     }
 
     public function test_sales_report_filters_by_date_range(): void
@@ -245,6 +309,7 @@ class ReportTest extends TestCase
         $response->assertStatus(200);
         $response->assertViewHas('products', function ($products) {
             $p = $products->first();
+
             return $p && $p->profit == 20.00;
         });
     }
@@ -275,7 +340,7 @@ class ReportTest extends TestCase
     {
         $this->actingAs($this->gerente());
 
-        $customer = \App\Models\Customer::factory()->create(['balance' => -50]);
+        $customer = Customer::factory()->create(['balance' => -50]);
         $creditSale = Sale::factory()->create([
             'status' => 'completada',
             'payment_method' => 'credito',
@@ -522,6 +587,7 @@ class ReportTest extends TestCase
         $response->assertStatus(200);
         $response->assertViewHas('products', function ($products) {
             $p = $products->first();
+
             return $p && $p->profit == 70.00 && $p->total_sold == 10;
         });
     }
@@ -588,8 +654,8 @@ class ReportTest extends TestCase
         $query = Sale::where('status', 'completada')
             ->whereDate('created_at', '>=', now()->startOfMonth()->toDateString())
             ->whereDate('created_at', '<=', now()->toDateString())
-            ->selectRaw("CASE WHEN EXTRACT(HOUR FROM sales.created_at) < 15 THEN ? ELSE ? END as schedule,
-                COUNT(*) as tickets, SUM(sales.total) as revenue",
+            ->selectRaw('CASE WHEN EXTRACT(HOUR FROM sales.created_at) < 15 THEN ? ELSE ? END as schedule,
+                COUNT(*) as tickets, SUM(sales.total) as revenue',
                 ['Manana (antes 3pm)', 'Noche (despues 3pm)'])
             ->groupBy('schedule');
 
@@ -723,6 +789,7 @@ class ReportTest extends TestCase
         $response->assertStatus(200);
         $response->assertViewHas('comparison', function ($c) use ($product) {
             $item = $c->firstWhere('id', $product->id);
+
             return $item
                 && $item->produced == 20
                 && $item->sold == 15
@@ -773,6 +840,7 @@ class ReportTest extends TestCase
         $response->assertStatus(200);
         $response->assertViewHas('comparison', function ($c) use ($product) {
             $item = $c->firstWhere('id', $product->id);
+
             return $item
                 && $item->wasted == 1
                 && $item->consumed == 2;
@@ -796,7 +864,7 @@ class ReportTest extends TestCase
         $user = $this->gerente();
         $this->actingAs($user);
 
-        $combo = \App\Models\Combo::factory()->create(['name' => 'Combo Familiar', 'sale_price' => 12.00]);
+        $combo = Combo::factory()->create(['name' => 'Combo Familiar', 'sale_price' => 12.00]);
         $sale = Sale::factory()->create([
             'user_id' => $user->id,
             'status' => 'completada',
@@ -813,8 +881,9 @@ class ReportTest extends TestCase
         $response = $this->get('/reports/products');
 
         $response->assertStatus(200);
-        $response->assertViewHas('products', function ($products) use ($combo) {
+        $response->assertViewHas('products', function ($products) {
             $row = $products->first(fn ($p) => $p->name === 'Combo Familiar');
+
             return $row && $row->control_type === 'combo' && $row->total_sold == 2;
         });
     }
@@ -824,7 +893,7 @@ class ReportTest extends TestCase
         $user = $this->gerente();
         $this->actingAs($user);
 
-        $combo = \App\Models\Combo::factory()->create(['name' => 'Combo Lunch', 'sale_price' => 8.00]);
+        $combo = Combo::factory()->create(['name' => 'Combo Lunch', 'sale_price' => 8.00]);
         $sale = Sale::factory()->create([
             'user_id' => $user->id,
             'status' => 'completada',
@@ -841,8 +910,9 @@ class ReportTest extends TestCase
         $response = $this->get('/reports/profit-margin');
 
         $response->assertStatus(200);
-        $response->assertViewHas('products', function ($products) use ($combo) {
+        $response->assertViewHas('products', function ($products) {
             $row = $products->first(fn ($p) => $p->name === 'Combo Lunch');
+
             // rate=1 (sin tasa) -> cost = 8 * 1 = 8, revenue 1600 -> profit 1592, margen alto
             return $row && $row->total_sold == 1 && $row->profit == 1592.0;
         });
@@ -853,7 +923,7 @@ class ReportTest extends TestCase
         $user = $this->gerente();
         $this->actingAs($user);
 
-        $combo = \App\Models\Combo::factory()->create(['name' => 'Combo Noche']);
+        $combo = Combo::factory()->create(['name' => 'Combo Noche']);
         $sale = Sale::factory()->create([
             'user_id' => $user->id,
             'status' => 'completada',
@@ -870,6 +940,7 @@ class ReportTest extends TestCase
         $response->assertStatus(200);
         $response->assertViewHas('comparison', function ($comparison) use ($combo) {
             $row = $comparison->firstWhere('name', $combo->name);
+
             return $row && $row->sold == 3 && $row->produced == 0 && $row->efficiency == 0.0;
         });
     }
@@ -881,7 +952,7 @@ class ReportTest extends TestCase
         $user = $this->gerente();
         $this->actingAs($user);
 
-        \App\Models\ExchangeRate::factory()->create(['rate' => 100]);
+        ExchangeRate::factory()->create(['rate' => 100]);
 
         $product = Product::factory()->create([
             'cost_price' => 5.00,
@@ -905,6 +976,7 @@ class ReportTest extends TestCase
         $response->assertStatus(200);
         $response->assertViewHas('products', function ($products) use ($product) {
             $row = $products->first(fn ($p) => $p->name === $product->name);
+
             // revenue 2000 Bs, costo USD 10 -> 1000 Bs -> ganancia 1000
             return $row && $row->cost == 1000.00 && $row->profit == 1000.00;
         });
@@ -939,17 +1011,17 @@ class ReportTest extends TestCase
         $user = $this->gerente();
         $this->actingAs($user);
 
-        \App\Models\ExchangeRate::factory()->create(['rate' => 100]);
-        $customer = \App\Models\Customer::factory()->create(['name' => 'Ana Perez']);
+        ExchangeRate::factory()->create(['rate' => 100]);
+        $customer = Customer::factory()->create(['name' => 'Ana Perez']);
 
-        \App\Models\CreditMovement::factory()->create([
+        CreditMovement::factory()->create([
             'customer_id' => $customer->id,
             'user_id' => $user->id,
             'type' => 'cargo',
             'amount' => 60.00,
             'created_at' => now(),
         ]);
-        \App\Models\CreditMovement::factory()->create([
+        CreditMovement::factory()->create([
             'customer_id' => $customer->id,
             'user_id' => $user->id,
             'type' => 'pago',
@@ -962,6 +1034,7 @@ class ReportTest extends TestCase
         $response->assertStatus(200);
         $response->assertViewHas('customers', function ($customers) use ($customer) {
             $row = $customers->first(fn ($c) => $c->id === $customer->id);
+
             return $row
                 && $row->period_cargos == 60.00
                 && $row->period_pagos == 10.00
@@ -1016,6 +1089,7 @@ class ReportTest extends TestCase
         $response->assertStatus(200);
         $response->assertViewHas('products', function ($products) use ($soldInRange, $soldOutside) {
             $ids = $products->pluck('id');
+
             return $ids->contains($soldOutside->id) && ! $ids->contains($soldInRange->id);
         });
     }
@@ -1071,6 +1145,7 @@ class ReportTest extends TestCase
         $response->assertStatus(200);
         $response->assertViewHas('byDay', function ($byDay) {
             $lunes = $byDay->firstWhere('day_name', 'Lunes');
+
             return $lunes && (int) $lunes->dow === 0 && $lunes->revenue == 40.00;
         });
     }
@@ -1082,8 +1157,8 @@ class ReportTest extends TestCase
         $user = $this->gerente();
         $this->actingAs($user);
 
-        \App\Models\ExchangeRate::factory()->create(['rate' => 100]);
-        \App\Models\Customer::factory()->create(['balance' => -25.00]);
+        ExchangeRate::factory()->create(['rate' => 100]);
+        Customer::factory()->create(['balance' => -25.00]);
 
         $response = $this->get('/reports');
 

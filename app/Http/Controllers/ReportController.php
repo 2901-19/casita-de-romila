@@ -11,8 +11,10 @@ use App\Models\Product;
 use App\Models\Production;
 use App\Models\Sale;
 use App\Models\SaleItem;
+use App\Models\SalePayment;
 use App\Support\Dates;
 use App\Traits\ExportableCsv;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\View\View;
@@ -94,46 +96,35 @@ class ReportController extends Controller
     {
         [$from, $to] = $this->dateRange($request);
 
-        $sales = Sale::with(['user', 'payments', 'items'])
-            ->where('status', 'completada')
-            ->whereDate('created_at', '>=', $from)
-            ->whereDate('created_at', '<=', $to)
-            ->orderByDesc('created_at')
-            ->paginate(50)
-            ->withQueryString();
+        // Ingresos por fecha de cobro (sale_payments.created_at): el crédito
+        // cuenta el día en que se cobra y cada pago parcial suma su monto.
+        $payments = SalePayment::join('sales', 'sales.id', '=', 'sale_payments.sale_id')
+            ->where('sales.status', '!=', 'anulada')
+            ->whereDate('sale_payments.created_at', '>=', $from)
+            ->whereDate('sale_payments.created_at', '<=', $to);
 
-        $totals = Sale::where('status', 'completada')
-            ->whereDate('created_at', '>=', $from)
-            ->whereDate('created_at', '<=', $to)
-            ->selectRaw('COUNT(*) as tickets, COALESCE(SUM(total), 0) as revenue')
-            ->first();
-
-        $totalRevenue = (float) $totals->revenue;
-        $totalTickets = (int) $totals->tickets;
+        $totalRevenue = (float) (clone $payments)->sum('sale_payments.amount');
+        $totalTickets = (int) (clone $payments)->count('sale_payments.id');
         $avgTicket = $totalTickets > 0 ? $totalRevenue / $totalTickets : 0;
 
-        $byMethod = Sale::where('sales.status', 'completada')
-            ->whereDate('sales.created_at', '>=', $from)
-            ->whereDate('sales.created_at', '<=', $to)
-            ->whereNull('sales.payment_method')
-            ->join('sale_payments', 'sales.id', '=', 'sale_payments.sale_id')
+        $byMethod = (clone $payments)
             ->selectRaw('sale_payments.method, SUM(sale_payments.amount) as total')
             ->groupBy('sale_payments.method')
-            ->pluck('total', 'method');
-
-        $creditTotal = Sale::where('status', 'completada')
-            ->where('payment_method', 'credito')
-            ->whereDate('created_at', '>=', $from)
-            ->whereDate('created_at', '<=', $to)
-            ->sum('total');
-        $byMethod->put('credito', $creditTotal);
+            ->pluck('total', 'method')
+            ->map(fn ($total) => (float) $total);
 
         $rate = (float) (ExchangeRate::latest()->first()?->rate ?? 1);
-        $totalUsd = (float) Sale::where('status', 'completada')
-            ->whereDate('created_at', '>=', $from)
-            ->whereDate('created_at', '<=', $to)
-            ->selectRaw('COALESCE(SUM(total / COALESCE(NULLIF(rate, 0), ?)), 0) as usd', [$rate])
-            ->value('usd');
+        $totalUsd = round($totalRevenue / $rate, 2);
+
+        $sales = SalePayment::with(['sale.user', 'sale.items'])
+            ->join('sales', 'sales.id', '=', 'sale_payments.sale_id')
+            ->where('sales.status', '!=', 'anulada')
+            ->whereDate('sale_payments.created_at', '>=', $from)
+            ->whereDate('sale_payments.created_at', '<=', $to)
+            ->orderByDesc('sale_payments.created_at')
+            ->select('sale_payments.*')
+            ->paginate(50)
+            ->withQueryString();
 
         return view('reports.sales', compact('sales', 'totalRevenue', 'totalTickets', 'avgTicket', 'totalUsd', 'byMethod', 'from', 'to'));
     }
@@ -142,26 +133,27 @@ class ReportController extends Controller
     {
         [$from, $to] = $this->dateRange($request);
 
-        $sales = Sale::with(['payments'])
-            ->where('status', 'completada')
-            ->whereDate('created_at', '>=', $from)
-            ->whereDate('created_at', '<=', $to)
-            ->orderByDesc('created_at')
+        $sales = SalePayment::with('sale')
+            ->join('sales', 'sales.id', '=', 'sale_payments.sale_id')
+            ->where('sales.status', '!=', 'anulada')
+            ->whereDate('sale_payments.created_at', '>=', $from)
+            ->whereDate('sale_payments.created_at', '<=', $to)
+            ->orderByDesc('sale_payments.created_at')
+            ->select('sale_payments.*')
             ->get();
 
         $methodLabels = ['efectivo' => 'Efectivo', 'biopago' => 'Biopago', 'transferencia' => 'Transferencia', 'pago_movil' => 'Pago Movil', 'pdv' => 'PDV', 'credito' => 'Credito'];
 
         $rows = $sales->map(fn ($s) => [
-            $s->id,
+            $s->sale_id,
+            $s->sale?->created_at->format('d/m/Y h:i a') ?? '—',
             $s->created_at->format('d/m/Y h:i a'),
-            $s->paid_at?->format('d/m/Y h:i a') ?? '—',
-            $s->items_count ?? $s->items()->count(),
-            number_format($s->total, 2, ',', '.'),
-            $methodLabels[$s->payment_method] ?? ($methodLabels[$s->payments->first()?->method] ?? '—'),
+            ($s->sale?->payment_method === 'credito' ? 'Credito → ' : '').($methodLabels[$s->method] ?? $s->method),
+            number_format((float) $s->amount, 2, ',', '.'),
         ]);
 
         return $this->exportCsv(
-            ['#', 'Fecha', 'Fecha Cobro', 'Items', 'Total (Bs)', 'Metodo'],
+            ['Venta #', 'Fecha Venta', 'Fecha Cobro', 'Metodo', 'Monto (Bs)'],
             $rows,
             "ventas_{$from}_{$to}.csv"
         );
@@ -237,7 +229,7 @@ class ReportController extends Controller
 
         $items = collect();
 
-        Product::with('category')->orderBy('name')->get()->each(function ($p) use ($productStats, $rate, $items) {
+        Product::with('category')->orderBy('name')->get()->each(function ($p) use ($productStats, $items) {
             $stat = $productStats->get($p->id);
             $items->push((object) [
                 'name' => $p->name,
@@ -251,7 +243,7 @@ class ReportController extends Controller
             ]);
         });
 
-        Combo::orderBy('name')->get()->each(function ($combo) use ($comboStats, $rate, $items) {
+        Combo::orderBy('name')->get()->each(function ($combo) use ($comboStats, $items) {
             $stat = $comboStats->get($combo->id);
             $items->push((object) [
                 'name' => $combo->name,
@@ -335,6 +327,7 @@ class ReportController extends Controller
                 $c->period_pagos = (float) ($st->pagos ?? 0);
                 $c->period_net_usd = round($c->period_cargos - $c->period_pagos, 2);
                 $c->period_net_bs = round($c->period_net_usd * $rate, 2);
+
                 return $c;
             })
             ->values();
@@ -404,7 +397,8 @@ class ReportController extends Controller
             ->orderByDesc('total_wasted')
             ->get()
             ->map(function ($w) {
-                $w->last_date = $w->last_date ? \Carbon\Carbon::parse($w->last_date) : null;
+                $w->last_date = $w->last_date ? Carbon::parse($w->last_date) : null;
+
                 return [
                     'product' => $w->product,
                     'total_wasted' => (int) $w->total_wasted,
@@ -419,7 +413,8 @@ class ReportController extends Controller
             ->orderByDesc('total_consumed')
             ->get()
             ->map(function ($w) {
-                $w->last_date = $w->last_date ? \Carbon\Carbon::parse($w->last_date) : null;
+                $w->last_date = $w->last_date ? Carbon::parse($w->last_date) : null;
+
                 return [
                     'product' => $w->product,
                     'total_consumed' => (int) $w->total_consumed,
@@ -465,7 +460,7 @@ class ReportController extends Controller
             $w->total_out,
             $w->type === 'consumo' ? number_format((float) $w->total_cost, 2, ',', '.') : '—',
             $reasonLabels[$w->reason] ?? ucfirst($w->reason ?? ''),
-            $w->last_date ? \Carbon\Carbon::parse($w->last_date)->format('d/m/Y H:i') : '—',
+            $w->last_date ? Carbon::parse($w->last_date)->format('d/m/Y H:i') : '—',
         ]);
 
         return $this->exportCsv(
@@ -621,7 +616,7 @@ class ReportController extends Controller
             ->groupBy('product_id')
             ->pluck('last', 'product_id');
 
-        $toDate = \Carbon\Carbon::parse($to)->endOfDay();
+        $toDate = Carbon::parse($to)->endOfDay();
 
         return Product::with('category')
             ->active()
@@ -629,8 +624,9 @@ class ReportController extends Controller
             ->map(function ($p) use ($soldInRange, $lastSaleDates, $toDate) {
                 $p->sold_in_range = (int) ($soldInRange->get($p->id, 0));
                 $last = $lastSaleDates->get($p->id);
-                $p->lastSale = $last ? \Carbon\Carbon::parse($last) : null;
+                $p->lastSale = $last ? Carbon::parse($last) : null;
                 $p->daysSinceSale = $p->lastSale ? $toDate->diffInDays($p->lastSale) : null;
+
                 return $p;
             })
             ->filter(fn ($p) => $p->sold_in_range === 0)
@@ -687,6 +683,7 @@ class ReportController extends Controller
             ->map(function ($d) use ($dayLabels) {
                 $d->day_name = $dayLabels[(int) $d->dow] ?? '—';
                 $d->avg = $d->tickets > 0 ? $d->revenue / $d->tickets : 0;
+
                 return $d;
             })
             ->sortBy('dow')
@@ -808,6 +805,7 @@ class ReportController extends Controller
         return collect($byId)
             ->map(function ($row) {
                 $row['efficiency'] = $row['produced'] > 0 ? round(($row['sold'] / $row['produced']) * 100, 1) : 0;
+
                 return (object) $row;
             })
             ->sortByDesc('sold')

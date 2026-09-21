@@ -25,7 +25,7 @@
     <div class="col-6 col-md-3">
         <div class="card">
             <div class="card-body py-2">
-                <p class="kpi-label mb-0">≈ USD (tasa por venta)</p>
+                <p class="kpi-label mb-0">≈ USD (tasa actual)</p>
                 <strong class="kpi-value">$ {{ number_format($totalUsd, 2, ',', '.') }}</strong>
             </div>
         </div>
@@ -33,7 +33,7 @@
     <div class="col-6 col-md-3">
         <div class="card">
             <div class="card-body py-2">
-                <p class="kpi-label mb-0">Tickets</p>
+                <p class="kpi-label mb-0">Cobros</p>
                 <strong class="kpi-value">{{ $totalTickets }}</strong>
             </div>
         </div>
@@ -41,7 +41,7 @@
     <div class="col-6 col-md-3">
         <div class="card">
             <div class="card-body py-2">
-                <p class="kpi-label mb-0">Promedio/Ticket</p>
+                <p class="kpi-label mb-0">Promedio por Cobro</p>
                 <strong class="kpi-value">Bs {{ number_format($avgTicket, 2, ',', '.') }}</strong>
             </div>
         </div>
@@ -79,25 +79,31 @@
 
 <div class="card">
     <div class="card-body">
-        <h5 class="card-title mb-3">Detalle de Ventas</h5>
+        <h5 class="card-title mb-3">Detalle de Ingresos (Cobros)</h5>
+        <p class="text-muted small mb-3">Ingresos por fecha de cobro: cada pago (venta al contado, cobro de crédito o pago parcial) suma aquí el día en que se recibió.</p>
         <div class="table-responsive">
             <table class="table align-middle">
                 <thead>
-                    <tr><th>#</th><th>Fecha</th><th>Fecha Cobro</th><th>Items</th><th class="text-end">Total</th><th>Metodo</th></tr>
+                    <tr><th>Venta</th><th>Fecha Venta</th><th>Fecha Cobro</th><th>Método</th><th class="text-end">Monto Cobrado</th></tr>
                 </thead>
                 <tbody>
-                    @forelse($sales as $s)
+                    @forelse($sales as $p)
                     <tr>
-                        <td class="num">#{{ $s->id }}</td>
-                        <td class="text-muted">{{ $s->created_at->format('d/m/Y h:i a') }}</td>
-                        <td class="text-muted">{{ $s->paid_at?->format('d/m/Y h:i a') ?? '—' }}</td>
-                        <td>{{ $s->items->count() }}</td>
-                        <td class="text-end num">Bs {{ number_format($s->total, 2, ',', '.') }}</td>
-                        @php($methods = ['efectivo' => 'Efectivo', 'biopago' => 'Biopago', 'transferencia' => 'Transfer.', 'pago_movil' => 'Pago Movil', 'pdv' => 'PDV', 'credito' => 'Credito'])
-                        <td><span class="badge-soft {{ $s->payment_method === 'credito' ? 'warning' : 'muted' }}">{{ $methods[$s->payment_method] ?? ($methods[$s->payments->first()?->method] ?? '—') }}</span></td>
+                        <td class="num">
+                            <a href="{{ route('sales.show', $p->sale_id) }}" class="text-decoration-none fw-semibold">#{{ $p->sale_id }}</a>
+                        </td>
+                        <td class="text-muted">{{ $p->sale?->created_at?->format('d/m/Y h:i a') ?? '—' }}</td>
+                        <td class="text-muted">{{ $p->created_at->format('d/m/Y h:i a') }}</td>
+                        @php($methods = ['efectivo' => 'Efectivo', 'biopago' => 'Biopago', 'transferencia' => 'Transferencia', 'pago_movil' => 'Pago Móvil', 'pdv' => 'PDV', 'credito' => 'Crédito'])
+                        <td>
+                            <span class="badge-soft {{ ($p->sale?->payment_method ?? null) === 'credito' ? 'warning' : 'muted' }}">
+                                {{ ($p->sale?->payment_method ?? null) === 'credito' ? 'Crédito · ' : '' }}{{ $methods[$p->method] ?? $p->method }}
+                            </span>
+                        </td>
+                        <td class="text-end num">Bs {{ number_format($p->amount, 2, ',', '.') }}</td>
                     </tr>
                     @empty
-                    <tr><td colspan="6" class="text-center text-muted py-4">Sin ventas en este periodo</td></tr>
+                    <tr><td colspan="5" class="text-center text-muted py-4">Sin cobros en este periodo</td></tr>
                     @endforelse
                 </tbody>
             </table>

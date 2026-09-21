@@ -83,13 +83,21 @@ class CustomerController extends Controller
 
     public function payCredit(Request $request, Customer $customer, Sale $sale): RedirectResponse
     {
+        $request->validate([
+            'amount_bs' => ['nullable', 'numeric', 'min:0.01'],
+            'payment_method' => ['required', 'in:efectivo,biopago,pago_movil,pdv,transferencia'],
+        ]);
+
         if ($sale->customer_id !== $customer->id || $sale->status !== 'pendiente') {
             return redirect()->route('credits.show', $customer)
                 ->with('error', 'Este crédito no puede cobrarse.');
         }
 
+        $isPartial = false;
+        $remainingUsd = 0.0;
+
         try {
-            DB::transaction(function () use ($sale, $customer, $request) {
+            DB::transaction(function () use ($sale, $customer, $request, &$isPartial, &$remainingUsd) {
                 $locked = Sale::whereKey($sale->id)->lockForUpdate()->first();
 
                 if (! $locked || $locked->customer_id !== $customer->id
@@ -98,31 +106,54 @@ class CustomerController extends Controller
                 }
 
                 $rate = (float) (ExchangeRate::latest()->first()?->rate ?? 1);
-                $outstanding = round((float) $locked->outstanding_usd, 2);
+                $outstandingUsd = round((float) $locked->outstanding_usd, 2);
+                $outstandingBs = round($outstandingUsd * $rate, 2);
+
+                $amountBs = $request->filled('amount_bs') ? round((float) $request->input('amount_bs'), 2) : $outstandingBs;
+
+                if ($amountBs >= $outstandingBs) {
+                    // Pago completo: se usa el saldo exacto para evitar residuos de redondeo.
+                    $paidUsd = $outstandingUsd;
+                    $paidBs = $outstandingBs;
+                } else {
+                    $paidUsd = round($amountBs / $rate, 2);
+                    $paidBs = $amountBs;
+                }
 
                 CreditMovement::create([
                     'customer_id' => $customer->id,
                     'sale_id' => $locked->id,
                     'user_id' => $request->user()->id,
                     'type' => 'pago',
-                    'amount' => $outstanding,
+                    'amount' => $paidUsd,
                     'notes' => "Pago de venta #{$locked->id}",
                     'rate' => $rate,
                 ]);
 
                 SalePayment::create([
                     'sale_id' => $locked->id,
-                    'method' => 'credito',
-                    'amount' => round($outstanding * $rate, 2),
+                    'method' => $request->input('payment_method'),
+                    'amount' => $paidBs,
                 ]);
 
-                $customer->increment('balance', $outstanding);
-                $locked->update(['status' => 'completada', 'paid_at' => now()]);
+                $customer->increment('balance', $paidUsd);
+
+                if ($paidUsd >= $outstandingUsd) {
+                    $locked->update(['status' => 'completada', 'paid_at' => now()]);
+                } else {
+                    $isPartial = true;
+                    $remainingUsd = round($outstandingUsd - $paidUsd, 2);
+                }
             });
         } catch (CheckoutException $e) {
             return redirect()->route('credits.show', $customer)->with('error', $e->getMessage());
         } catch (\Throwable $e) {
             return redirect()->route('credits.show', $customer)->with('error', 'Error al registrar el pago.');
+        }
+
+        if ($isPartial) {
+            return redirect()->route('credits.show', $customer)
+                ->with('success', 'Pago parcial registrado. Quedan $ '.number_format($remainingUsd, 2, ',', '.').' USD por cobrar.');
         }
 
         return redirect()->route('credits.show', $customer)

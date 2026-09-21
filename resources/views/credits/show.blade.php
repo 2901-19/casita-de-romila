@@ -98,7 +98,9 @@
                                                 data-customer="{{ $customer->id }}"
                                                 data-sale-id="{{ $cs->id }}"
                                                 data-bs-usd="{{ number_format($outstandingMap[$cs->id], 2, ',', '.') }}"
-                                                data-bs-total="{{ number_format(round((float) $outstandingMap[$cs->id] * $rate, 2), 2, ',', '.') }}">
+                                                data-bs-total="{{ number_format(round((float) $outstandingMap[$cs->id] * $rate, 2), 2, ',', '.') }}"
+                                                data-bs-usd-raw="{{ number_format($outstandingMap[$cs->id], 2, '.', '') }}"
+                                                data-bs-total-raw="{{ number_format(round((float) $outstandingMap[$cs->id] * $rate, 2), 2, '.', '') }}">
                                             <i class="bi bi-cash-coin me-1"></i> Cobrar
                                         </button>
                                     @else
@@ -160,18 +162,45 @@
 </div>
 
 <div class="modal fade" id="payModal" tabindex="-1" aria-labelledby="payModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered modal-sm">
-        <form method="POST" id="payForm" action="">
+    <div class="modal-dialog modal-dialog-centered" style="max-width: 520px">
+        <form method="POST" id="payForm" action="" novalidate>
             @csrf
             <div class="modal-content">
                 <div class="modal-header">
                     <h5 class="modal-title" id="payModalLabel">Cobrar Crédito</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
                 </div>
-                <div class="modal-body text-center">
-                    <p class="mb-2">Cobrar la venta <strong id="paySaleNum">#—</strong></p>
-                    <p class="kpi-value mb-1">Bs <span id="payBsAmount">—</span></p>
-                    <p class="text-muted small mb-0">≈ $ <span id="payUsdAmount">—</span> USD · tasa Bs {{ number_format($rate, 2, ',', '.') }}</p>
+                <div class="modal-body">
+                    <p class="mb-2">Cobrar venta <strong id="paySaleNum">#—</strong> · saldo $ <span id="payUsdAmount">—</span></p>
+                    <p class="text-muted small mb-3">≈ Bs <span id="payBsAmount">—</span> · tasa Bs {{ number_format($rate, 2, ',', '.') }}</p>
+
+                    <label class="form-label">Método de pago</label>
+                    <div class="pos-payment-methods mb-3">
+                        @php($payMethods = ['efectivo' => 'bi-cash', 'biopago' => 'bi-qr-code', 'pago_movil' => 'bi-phone', 'transferencia' => 'bi-bank', 'pdv' => 'bi-credit-card-2-front'])
+                        @foreach($payMethods as $key => $icon)
+                        <label class="payment-option">
+                            <input type="radio" name="payment_method" value="{{ $key }}" {{ $loop->first ? 'checked' : '' }}>
+                            <i class="bi {{ $icon }}"></i> {{ ucwords(str_replace('_', ' ', $key)) }}
+                        </label>
+                        @endforeach
+                    </div>
+                    @error('payment_method')
+                        <div class="text-danger small mb-2">{{ $message }}</div>
+                    @enderror
+
+                    <label for="payAmount" class="form-label">Monto a cobrar (Bs)</label>
+                    <div class="input-group mb-2">
+                        <input type="number" step="0.01" min="0.01" class="form-control" id="payAmount" name="amount_bs" placeholder="0,00" required>
+                        <button type="button" class="btn btn-outline-brand" id="payAllBtn" title="Cobrar el saldo completo">Cobrar todo</button>
+                    </div>
+                    @error('amount_bs')
+                        <div class="text-danger small mb-2">{{ $message }}</div>
+                    @enderror
+
+                    <div class="rounded p-2 bg-light small" id="payPreview">
+                        <span class="text-muted">Se cobrarán ≈ $</span> <strong id="previewUsd">—</strong>
+                        <span class="d-block text-muted mt-1">Quedará pendiente <strong id="previewRemainingUsd">—</strong> USD</span>
+                    </div>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
@@ -188,15 +217,74 @@
 document.addEventListener('DOMContentLoaded', function () {
     var payModal = document.getElementById('payModal');
     var form = document.getElementById('payForm');
+    var amountInput = document.getElementById('payAmount');
+    var payAllBtn = document.getElementById('payAllBtn');
+    var rate = parseFloat('{{ $rate }}');
+
+    function syncMethodSelection() {
+        var radios = payModal.querySelectorAll('input[name="payment_method"]');
+        radios.forEach(function (radio) {
+            radio.closest('.payment-option').classList.toggle('selected', radio.checked);
+        });
+    }
+
+    function fmt(n) {
+        return n.toLocaleString('es-VE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+
+    function refreshPreview() {
+        var usdRaw = parseFloat(payModal.dataset.usdRaw || '0');
+        var bsRaw = parseFloat(payModal.dataset.bsRaw || '0');
+        var value = parseFloat(amountInput.value);
+
+        if (isNaN(value) || value <= 0) {
+            document.getElementById('previewUsd').textContent = '—';
+            document.getElementById('previewRemainingUsd').textContent = '—';
+            return;
+        }
+
+        var usd = value / rate;
+        var remaining = Math.max(0, usdRaw - usd);
+
+        document.getElementById('previewUsd').textContent = fmt(usd);
+        document.getElementById('previewRemainingUsd').textContent = fmt(remaining);
+
+        if (value >= bsRaw || remaining <= 0) {
+            document.getElementById('previewUsd').textContent = fmt(usdRaw);
+            document.getElementById('previewRemainingUsd').textContent = fmt(0);
+            document.querySelector('#payPreview span.text-muted').textContent = 'Se cobrará el saldo completo ≈ $';
+        } else {
+            document.querySelector('#payPreview span.text-muted').textContent = 'Se cobrarán ≈ $';
+        }
+    }
 
     payModal.addEventListener('show.bs.modal', function (event) {
         var btn = event.relatedTarget;
         if (!btn) return;
         form.action = '{{ url('credits') }}/' + btn.getAttribute('data-customer') + '/credits/' + btn.getAttribute('data-sale-id') + '/pay';
+        payModal.dataset.usdRaw = btn.getAttribute('data-bs-usd-raw');
+        payModal.dataset.bsRaw = btn.getAttribute('data-bs-total-raw');
         document.getElementById('paySaleNum').textContent = '#' + btn.getAttribute('data-sale-id');
         document.getElementById('payBsAmount').textContent = btn.getAttribute('data-bs-total');
         document.getElementById('payUsdAmount').textContent = btn.getAttribute('data-bs-usd');
+        amountInput.value = btn.getAttribute('data-bs-total-raw');
+        document.querySelector('#payPreview span.text-muted').textContent = 'Se cobrará el saldo completo ≈ $';
+        refreshPreview();
     });
+
+    amountInput.addEventListener('input', refreshPreview);
+
+    payModal.querySelectorAll('input[name="payment_method"]').forEach(function (radio) {
+        radio.addEventListener('change', syncMethodSelection);
+    });
+
+    payAllBtn.addEventListener('click', function () {
+        amountInput.value = payModal.dataset.bsRaw;
+        document.querySelector('#payPreview span.text-muted').textContent = 'Se cobrará el saldo completo ≈ $';
+        refreshPreview();
+    });
+
+    payModal.addEventListener('shown.bs.modal', syncMethodSelection);
 });
 </script>
 @endpush

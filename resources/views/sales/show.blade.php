@@ -126,21 +126,28 @@
                 <h3 class="card-title mb-3">Pagos</h3>
                 @php($methods = ['efectivo' => 'Efectivo', 'biopago' => 'Biopago', 'transferencia' => 'Transferencia', 'pago_movil' => 'Pago Móvil', 'pdv' => 'PDV', 'credito' => 'Crédito'])
                 @if($sale->payment_method === 'credito')
-                    @if($sale->paid_at && $sale->payments->isNotEmpty())
+                    @if($sale->payments->isNotEmpty())
                         @foreach($sale->payments as $payment)
                         <div class="d-flex justify-content-between align-items-center mb-2">
                             <div>
                                 <span class="badge-soft success">{{ $methods[$payment->method] ?? $payment->method }}</span>
+                                <small class="text-muted ms-2">{{ $payment->created_at->format('d/m/Y h:i a') }}</small>
                             </div>
                             <strong>Bs {{ number_format($payment->amount, 2, ',', '.') }}</strong>
                         </div>
                         @endforeach
-                        <p class="small text-muted mb-0 mt-2">
-                            <i class="bi bi-check2-circle me-1"></i> Cobrado el {{ $sale->paid_at->format('d/m/Y h:i a') }}
-                            @if($sale->paid_at && $sale->created_at->toDateString() !== $sale->paid_at->toDateString())
-                                · Bs del día del cobro
-                            @endif
-                        </p>
+                        @if($sale->status === 'pendiente')
+                            <p class="small text-muted mb-0 mt-2">
+                                <i class="bi bi-hourglass-split me-1"></i> Quedan <strong>$ {{ number_format($sale->outstanding_usd, 2, ',', '.') }}</strong> USD por cobrar
+                            </p>
+                        @else
+                            <p class="small text-muted mb-0 mt-2">
+                                <i class="bi bi-check2-circle me-1"></i> Cobrado el {{ $sale->paid_at?->format('d/m/Y h:i a') }}
+                                @if($sale->paid_at && $sale->created_at->toDateString() !== $sale->paid_at->toDateString())
+                                    · Bs del día del cobro
+                                @endif
+                            </p>
+                        @endif
                     @else
                         @can('manage-credits')
                         <a class="btn btn-sm btn-outline-brand"
