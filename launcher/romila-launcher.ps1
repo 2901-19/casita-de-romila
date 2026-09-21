@@ -108,7 +108,12 @@ try {
     # --- Auto-recuperacion: estado de la instancia anterior ---
     $phpAnterior = $null
     if (Test-Path $pidFile) {
-        $phpAnterior = [int]((Get-Content $pidFile -Raw).Trim())
+        $raw = Get-Content $pidFile -Raw
+        if ($raw -and $raw.Trim() -match '^\d+$') {
+            $phpAnterior = [int]$raw.Trim()
+        } else {
+            Remove-Item $pidFile -Force -ErrorAction SilentlyContinue
+        }
     }
     $puertoActivo = Test-Puerto $port
 
@@ -135,6 +140,7 @@ try {
     # --- Arranque del servidor ---
     $token = [guid]::NewGuid().ToString('N')
     $phpProc = Start-Process -FilePath $php -ArgumentList @('artisan', 'serve', '--host=127.0.0.1', "--port=$port") -WorkingDirectory $appDir -WindowStyle Hidden -PassThru
+    if (-not $phpProc) { throw 'No se pudo iniciar el servidor PHP.' }
     Set-Content -Path $pidFile -Value $phpProc.Id
     Set-Content -Path $tokenFile -Value $token
 
@@ -154,6 +160,7 @@ try {
     $ventana = $false
     for ($i = 0; $i -lt 60; $i++) {
         Start-Sleep -Seconds 1
+        if (-not $browser) { break }
         $browser.Refresh()
         if ($browser.HasExited) { break }
         if ($browser.MainWindowHandle -ne 0) { $ventana = $true; break }
@@ -163,6 +170,7 @@ try {
     # --- Vigilancia: al cerrar la ventana, apagar todo ---
     while ($true) {
         Start-Sleep -Seconds 2
+        if (-not $browser) { break }
         $browser.Refresh()
         if ($browser.HasExited) { break }
         if ($browser.MainWindowHandle -eq 0) {
