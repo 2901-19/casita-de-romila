@@ -1,0 +1,491 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Manual Técnico — Casita de Romila</title>
+<style>
+    :root{
+        --brand:#ff8fda; --accent:#8fffb4; --on-brand:#3d1233; --ink:#2d1a2b;
+        --muted:#7a5f74; --line:#e8d9e6; --paper:#ffffff; --soft:#faf3f9;
+        --code-bg:#2d1a2b; --code-ink:#f4d7ef;
+    }
+    *{box-sizing:border-box;}
+    html,body{margin:0;padding:0;}
+    body{font-family:'Segoe UI','Montserrat',Arial,sans-serif;color:var(--ink);font-size:9.5pt;line-height:1.5;}
+    h1,h2,h3,h4{color:var(--on-brand);line-height:1.25;page-break-after:avoid;}
+    h1{font-size:20pt;margin:0 0 .35em;}
+    h2{font-size:14pt;margin:0 0 .4em;padding-bottom:.22em;border-bottom:2px solid var(--brand);}
+    h3{font-size:11.5pt;margin:1em 0 .25em;}
+    h4{font-size:10pt;margin:.8em 0 .2em;}
+    p{margin:.4em 0;}
+    ul,ol{margin:.3em 0 .6em;padding-left:1.4em;}
+    li{margin:.15em 0;}
+    a{color:#c23b9b;text-decoration:none;}
+    .cover{height:100vh;display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;border-bottom:4px solid var(--brand);}
+    .cover .logo{font-size:52pt;color:var(--brand);}
+    .cover h1{font-size:30pt;margin:.2em 0;}
+    .cover .sub{font-size:14pt;color:var(--muted);}
+    .cover .meta{margin-top:2em;font-size:10pt;color:var(--muted);}
+    .toc{page-break-after:always;}
+    .toc ul{list-style:none;padding-left:0;}
+    .toc li{margin:.28em 0;font-size:10pt;}
+    .toc a{color:var(--ink);}
+    .pagebreak{page-break-before:always;}
+    .note{border-left:4px solid var(--brand);background:var(--soft);padding:.55em .85em;border-radius:0 6px 6px 0;margin:.6em 0;font-size:9pt;}
+    .warn{border-left:4px solid #ffb84d;background:#fff7ea;padding:.55em .85em;border-radius:0 6px 6px 0;margin:.6em 0;font-size:9pt;}
+    .tip{border-left:4px solid var(--accent);background:#f0fbf4;padding:.55em .85em;border-radius:0 6px 6px 0;margin:.6em 0;font-size:9pt;}
+    table{width:100%;border-collapse:collapse;margin:.45em 0 .8em;font-size:8.4pt;}
+    th,td{border:1px solid var(--line);padding:.3em .45em;text-align:left;vertical-align:top;}
+    th{background:var(--soft);color:var(--on-brand);}
+    code{background:var(--code-bg);color:var(--code-ink);padding:.08em .32em;border-radius:4px;font-size:88%;font-family:'Cascadia Code',Consolas,monospace;}
+    pre{background:var(--code-bg);color:var(--code-ink);padding:.7em .9em;border-radius:8px;font-size:8.2pt;line-height:1.45;overflow:auto;page-break-inside:avoid;font-family:'Cascadia Code',Consolas,monospace;}
+    pre code{background:none;color:inherit;padding:0;}
+    .tag{display:inline-block;background:#eef0ff;color:#3d3db8;border-radius:4px;padding:0 .4em;font-size:7.5pt;font-weight:700;border:1px solid #d4d6ff;}
+    .footer-note{color:var(--muted);font-size:8pt;text-align:center;margin-top:1em;}
+</style>
+</head>
+<body>
+
+<!-- ================= PORTADA ================= -->
+<div class="cover">
+    <div class="logo">🏠</div>
+    <h1>Casita de Romila</h1>
+    <div class="sub">Sistema de Gestión para Panadería y Cafetería</div>
+    <p style="margin-top:.5em"><span class="tag">&#x1F527; MANUAL TÉCNICO</span></p>
+    <div class="meta">
+        <div><strong>Versión de la aplicación:</strong> 1.0</div>
+        <div><strong>Versión del manual:</strong> 1.0</div>
+        <div><strong>Fecha:</strong> Septiembre de 2026</div>
+        <div><strong>Audiencia:</strong> desarrolladores, administradores y personal de soporte</div>
+    </div>
+</div>
+
+<!-- ================= ÍNDICE ================= -->
+<div class="toc">
+    <h2>Índice de contenido</h2>
+    <ul>
+        <li><a href="#t1">1. Resumen del proyecto</a></li>
+        <li><a href="#t2">2. Arquitectura y stack tecnológico</a></li>
+        <li><a href="#t3">3. Estructura de directorios</a></li>
+        <li><a href="#t4">4. Requisitos del entorno</a></li>
+        <li><a href="#t5">5. Instalación</a></li>
+        <li><a href="#t6">6. Configuración</a></li>
+        <li><a href="#t7">7. Modelo de datos</a></li>
+        <li><a href="#t8">8. Roles y permisos</a></li>
+        <li><a href="#t9">9. Autenticación y sesiones</a></li>
+        <li><a href="#t10">10. Lógica de negocio clave</a></li>
+        <li><a href="#t11">11. Rutas de la aplicación</a></li>
+        <li><a href="#t12">12. Interfaz de usuario</a></li>
+        <li><a href="#t13">13. Pruebas y calidad</a></li>
+        <li><a href="#t14">14. Despliegue y producción</a></li>
+        <li><a href="#t15">15. Mantenimiento, respaldos y solución de problemas</a></li>
+        <li><a href="#t16">16. Registro de cambios</a></li>
+    </ul>
+</div>
+
+<!-- ================= 1. RESUMEN ================= -->
+<div class="pagebreak"></div>
+<h2 id="t1">1. Resumen del proyecto</h2>
+<p><strong>Casita de Romila</strong> es un sistema web de gestión para una panadería y cafetería. Está pensado para uso local en un solo establecimiento, operado desde el puesto de caja y el teléfono o PC del dueño.</p>
+<p>Funcionalidades principales:</p>
+<ul>
+    <li><strong>Punto de venta (POS)</strong> con múltiples métodos de pago (efectivo, Biopago, pago móvil, PDV, crédito) y precios recalculados desde el servidor (nunca desde el cliente).</li>
+    <li><strong>Comandas</strong>: pedidos a cocina con entrega por unidades que se convierten en venta real al cobrar.</li>
+    <li><strong>Inventario</strong>, movimientos (compras/ajustes/devoluciones), <strong>producción</strong> por lotes, <strong>mermas</strong> y <strong>consumo interno</strong> (multilínea, con costo en USD).</li>
+    <li><strong>Créditos a clientes</strong> con saldo en USD, límites y cobro posterior (ingreso registrado en el día del cobro).</li>
+    <li><strong>Tasa de cambio</strong> diaria con historial y <strong>tasas congeladas</strong> por venta.</li>
+    <li><strong>Reportes</strong>: ventas, mermas vs consumo, producción vs ventas, margen, top días, horarios, etc., con exportación CSV.</li>
+    <li><strong>Usuarios y roles</strong> con permisos por módulo.</li>
+</ul>
+
+<div class="note">
+    El sistema fue desarrollado sobre imágenes de demostración para este manual. Las cifras de pruebas citadas corresponden a la versión documentada.
+</div>
+
+<!-- ================= 2. ARQUITECTURA ================= -->
+<div class="pagebreak"></div>
+<h2 id="t2">2. Arquitectura y stack tecnológico</h2>
+<h3>2.1 Vista general</h3>
+<p>Aplicación monolítica <strong>Laravel</strong> con vistas <em>server-side</em> (Blade) y comportamiento interactivo ligero con <strong>Alpine.js</strong>. El frontend se compila con <strong>Vite</strong>. Los datos viven en <strong>PostgreSQL</strong> en producción; las pruebas usan SQLite en memoria.</p>
+
+<table>
+    <tr><th>Capa</th><th>Tecnología</th><th>Detalle</th></tr>
+    <tr><td>Lenguaje / Framework</td><td>PHP 8.3 · Laravel 13</td><td>Composer: <code>laravel/framework ^13.17</code>. Se usa el arranque clásico (bootstrap/app.php), sin módulos.</td></tr>
+    <tr><td>Base de datos (prod)</td><td>PostgreSQL</td><td>Conexión <code>pgsql</code>. Numeración serializada con <code>pg_advisory_xact_lock</code>.</td></tr>
+    <tr><td>Base de datos (tests)</td><td>SQLite en memoria</td><td>Configurada en <code>phpunit.xml</code>; sin servicio externo.</td></tr>
+    <tr><td>Frontend</td><td>Bootstrap 5 · Alpine.js · Blade</td><td>Bootstrap para estructura, Alpine para interactividad en POS/carritos/modales, Blade + <code>@vite</code>.</td></tr>
+    <tr><td>Gráficos</td><td>Chart.js</td><td>Gráficos de barras en dashboard y reportes.</td></tr>
+    <tr><td>Estilos</td><td>CSS propio + oklch</td><td>Tokens de diseño en <code>resources/css/app.css</code> (paleta rosa/menta), fuentes offline vía <code>@fontsource</code> (Insaniburga + Montserrat).</td></tr>
+    <tr><td>Autenticación</td><td>Login por username</td><td>Sin email; cuentas con <code>users.username</code> único. Rate limit y control de usuarios activos a mitad de sesión.</td></tr>
+    <tr><td>Ejecución local</td><td><code>php artisan serve</code></td><td>El sistema está pensado para correr en un PC del local; el “lanzador” (<code>launcher/romila-launcher.ps1</code>) levanta el servidor y limpia sesiones.</td></tr>
+</table>
+
+<h3>2.2 Decisiones de diseño</h3>
+<ul>
+    <li><strong>Precios autoritativos del servidor:</strong> <code>CheckoutService::execute()</code> recalcula todo desde la BD ignorando precios/nombres enviados por el cliente.</li>
+    <li><strong>Promedios monetarios en doble moneda:</strong> el costo/precio/stock se almacenan en <strong>USD</strong>; el valor en Bs se deriva con la tasa del día. Se soporta <em>redondeo</em> a múltiplos (5/10/…) vía la columna <code>round_bs</code>.</li>
+    <li><strong>Permisos por módulo (gates dinámicos):</strong> definidos en <code>AppServiceProvider::boot()</code> desde el catálogo de <code>Permission::CATALOG</code>.</li>
+    <li><strong>Transacciones para dinero:</strong> checkout, cobro de crédito y anulación de ventas usan <code>DB::transaction</code> con <code>lockForUpdate()</code> y re-verificación.</li>
+</ul>
+
+<!-- ================= 3. ESTRUCTURA ================= -->
+<div class="pagebreak"></div>
+<h2 id="t3">3. Estructura de directorios</h2>
+<pre><code>casita-de-romila/
+├── app/
+│   ├── Enums/
+│   │   ├── ProductType.php          # Inventariable | Produccion | Demanda
+│   │   └── Schedule.php             # Horarios (manana/ambos/noche…)
+│   ├── Exceptions/
+│   │   └── CheckoutException.php    # Errores de negocio del checkout
+│   ├── Http/
+│   │   ├── Controllers/             # 18 controladores (ver §11)
+│   │   │   └── Auth/LoginController.php
+│   │   └── Middleware/
+│   │       ├── EnsureUserIsActive.php
+│   │       └── RegistrarLanzador.php
+│   ├── Models/                      # 20 modelos Eloquent (ver §7)
+│   ├── Providers/
+│   │   └── AppServiceProvider.php   # Gates desde Permission::CATALOG
+│   ├── Services/
+│   │   └── CheckoutService.php      # Fuente de verdad del checkout
+│   └── Support/
+│       ├── Dates.php                # Rango por defecto (inicio de mes)
+│       ├── Like.php                 # Filtro LIKE portable (sqlite/pgsql)
+│       └── Pricing.php              # bs(): USD→Bs con redondeo
+├── bootstrap/app.php                # Middleware global y por grupo
+├── config/, database/               # migraciones y seeders
+│   ├── migrations/                  # 25 migraciones (ver §7)
+│   └── seeders/
+│       ├── DatabaseSeeder.php       # Roles+permisos+usuario admin
+│       └── RolePermissionSeeder.php # Idempotente (firstOrCreate)
+├── launcher/
+│   └── romila-launcher.ps1          # Lanzador local (servir + limpiar)
+├── resources/
+│   ├── css/app.css                  # Tokens oklch, paleta
+│   ├── js/app.js, js/pos.js         # Bootstrap+Alpine+posApp
+│   └── views/                       # 41 vistas Blade + layouts
+├── routes/web.php                   # Todas las rutas (ver §11)
+└── tests/                           # 23 archivos; suite verde 304/990
+</code></pre>
+
+<!-- ================= 4. REQUISITOS ================= -->
+<div class="pagebreak"></div>
+<h2 id="t4">4. Requisitos del entorno</h2>
+<table>
+    <tr><th>Componente</th><th>Versión usada</th><th>Notas</th></tr>
+    <tr><td>PHP</td><td>8.3.32 (CLI)</td><td>Extensiones: pdo_pgsql, pdo_sqlite, mbstring, openssl, fileinfo, zip.</td></tr>
+    <tr><td>Composer</td><td>2.x</td><td>Gestión de dependencias PHP.</td></tr>
+    <tr><td>Node.js / npm</td><td>v24.18.0 / 11.16.0</td><td>Compilación de assets con Vite.</td></tr>
+    <tr><td>PostgreSQL</td><td>18</td><td>Servicio <code>postgresql-x64-18</code>, escuchando en <code>127.0.0.1:5432</code>. Utilidades <code>psql</code>/<code>createdb</code> en <code>C:\Program Files\PostgreSQL\18\bin</code>.</td></tr>
+    <tr><td>Navegador</td><td>Edge / Chrome / equivalente</td><td>Requisito del runtime p. ej. para <code>chromium.launch</code> al generar PDFs/capturas.</td></tr>
+</table>
+
+<!-- ================= 5. INSTALACIÓN ================= -->
+<div class="pagebreak"></div>
+<h2 id="t5">5. Instalación</h2>
+<h3>5.1 Clonar e instalar dependencias</h3>
+<pre><code>git clone &lt;repositorio&gt; casita-de-romila
+cd casita-de-romila
+composer install
+npm install</code></pre>
+
+<h3>5.2 Configurar entorno</h3>
+<pre><code>copy .env.example .env
+# editar .env (ver §6)</code></pre>
+
+<h3>5.3 Base de datos</h3>
+<pre><code># crear la base desde psql (password interactivo o PGPASSWORD)
+psql -h 127.0.0.1 -U postgres -c "CREATE DATABASE casita;"
+
+# migrar y sembrar
+php artisan migrate --force
+php artisan db:seed --force      # roles, permisos y usuario admin</code></pre>
+
+<h3>5.4 Compilar assets y arrancar</h3>
+<pre><code>npm run build                     # producción
+# ó npm run dev                   # desarrollo (Vite dev server)
+
+php artisan serve --host=127.0.0.1 --port=8000</code></pre>
+
+<p>Acceso inicial: usuario <code>admin</code>, contraseña <code>password</code> (cambiar en producción).</p>
+<div class="warn">
+    El <code>DatabaseSeeder</code> crea roles/permisos/admin pero <strong>no</strong> crea datos de demostración. En AGENTS.md y el README se menciona un <code>DemoSeeder</code> (<code>php artisan db:seed --class=DemoSeeder</code>) que <strong>no existe</strong> actualmente; véase §16 para esta corrección de documentación.
+</div>
+
+<h3>5.5 Entorno de desarrollo notable</h3>
+<ul>
+    <li>Las sesiones usan el driver <strong>database</strong> (tabla <code>sessions</code>).</li>
+    <li>El “lanzador” <code>launcher/romila-launcher.ps1</code> invoca <code>php artisan sessions:purge</code> (borra sesiones expiradas y registros huérfanos de la tabla <code>lanzador_sesiones</code>) antes de levantar el servidor.</li>
+</ul>
+
+<!-- ================= 6. CONFIGURACIÓN ================= -->
+<div class="pagebreak"></div>
+<h2 id="t6">6. Configuración</h2>
+<h3>6.1 Variables principales de <code>.env</code></h3>
+<table>
+    <tr><th>Variable</th><th>Ejemplo</th><th>Descripción</th></tr>
+    <tr><td><code>APP_URL</code></td><td><code>http://localhost:8000</code></td><td>URL pública; afecta URLs generadas.</td></tr>
+    <tr><td><code>DB_CONNECTION</code></td><td><code>pgsql</code></td><td>Motor de producción. Pruebas usan <code>sqlite</code> in-memory.</td></tr>
+    <tr><td><code>DB_HOST</code> / <code>DB_PORT</code></td><td><code>127.0.0.1:5432</code></td><td>Servidor PostgreSQL.</td></tr>
+    <tr><td><code>DB_DATABASE</code>/<code>DB_USERNAME</code>/<code>DB_PASSWORD</code></td><td><code>casita</code>/<code>postgres</code>/…</td><td>Credenciales de la base.</td></tr>
+    <tr><td><code>SESSION_DRIVER</code></td><td><code>database</code></td><td>Sesiones persistentes en la tabla <code>sessions</code>.</td></tr>
+</table>
+
+<h3>6.2 Consideraciones</h3>
+<ul>
+    <li>El <code>.env.example</code> trae <code>DB_PASSWORD=postgres</code>; el entorno real usa el password del servidor PostgreSQL instalado.</li>
+    <li>Para ejecutar con una BD alterna (p. ej. la de demostración) se puede sobrescribir en la misma invocación: <code>$env:DB_DATABASE='casita_docs'; php artisan serve …</code>.</li>
+    <li><strong>Siempre</strong> limpiar vistas compiladas tras tocar templates: <code>Remove-Item storage/framework/views/*.php -Force</code> (o <code>php artisan view:clear</code>).</li>
+</ul>
+
+<!-- ================= 7. MODELO DE DATOS ================= -->
+<div class="pagebreak"></div>
+<h2 id="t7">7. Modelo de datos</h2>
+<h3>7.1 Inventario de tablas (25 migraciones)</h3>
+<table>
+    <tr><th>Tabla</th><th>Propósito y columnas clave</th></tr>
+    <tr><td><code>users</code></td><td>Usuarios: <code>name</code>, <code>username</code> (único, minúsculas), <code>password</code>, <code>is_active</code>, <code>last_login_at</code>, <code>role_id</code> FK.</td></tr>
+    <tr><td><code>roles</code> / <code>permissions</code> / <code>permission_role</code></td><td>RBAC: roles (<code>name</code>, <code>slug</code> único, <code>is_system</code>), catálogo de permisos (<code>key</code>, <code>label</code>, <code>module</code>), pivote.</td></tr>
+    <tr><td><code>categories</code></td><td>Catálogo de categorías (<code>name</code>).</td></tr>
+    <tr><td><code>products</code></td><td><code>category_id</code>, <code>name</code>, <code>control_type</code> (inventariable/produccion/demanda), <code>cost_price</code>/<code>sale_price</code> (USD), <code>margin_percent</code>, <code>price_override</code>, <code>round_bs</code>, <code>stock_min</code>, <code>stock_current</code>, <code>schedule</code>, <code>is_active</code>, <code>image</code>, <code>notes</code>.</td></tr>
+    <tr><td><code>combos</code> / <code>combo_product</code></td><td>Combos con precio propio (<code>sale_price</code>, <code>round_bs</code>, <code>image</code>, <code>is_active</code>). Pivote con <code>quantity</code> (PK compuesta), modelo <code>ComboProduct</code>.</td></tr>
+    <tr><td><code>customers</code></td><td>Clientes: <code>name</code>, <code>phone</code>, <code>balance</code> (USD; negativo = deuda), <code>credit_limit_type</code> (libre/monto), <code>credit_limit_amount</code>, <code>is_active</code>.</td></tr>
+    <tr><td><code>sales</code></td><td><code>sale_number</code> (único global), <code>user_id</code>, <code>customer_id</code>, <code>total</code> (Bs), <code>payment_method</code> (incluye <code>credito</code>), <code>amount_paid</code>, <code>status</code> (completada/pendiente/anulada), <code>rate</code> (tasa congelada), <code>paid_at</code>, campos de anulación (<code>cancel_reason</code>, <code>canceled_by</code>, <code>canceled_at</code>).</td></tr>
+    <tr><td><code>sale_items</code></td><td>Snapshot: <code>sale_id</code>, <code>product_id</code>/<code>combo_id</code> (nullable), <code>product_name</code>, <code>quantity</code>, <code>unit_price</code>, <code>subtotal</code>.</td></tr>
+    <tr><td><code>sale_payments</code></td><td>Pagos: <code>sale_id</code>, <code>method</code> (efectivo/biopago/pago_movil/pdv/transferencia/<strong>credito</strong>), <code>amount</code>. El método <code>credito</code> se añadió sin enum nativo (ver §7.2).</td></tr>
+    <tr><td><code>credit_movements</code></td><td>Movimientos de crédito: <code>customer_id</code>, <code>sale_id</code> (nullable), <code>user_id</code>, <code>type</code> (cargo/abono/pago), <code>amount</code> (USD), <code>rate</code>, <code>notes</code>.</td></tr>
+    <tr><td><code>productions</code></td><td>Lotes: <code>product_id</code>, <code>user_id</code>, <code>quantity</code>, <code>notes</code>.</td></tr>
+    <tr><td><code>inventory_adjustments</code></td><td>Movimientos: <code>product_id</code>, <code>production_id</code>/<code>user_id</code> (nullable), <code>type</code> (entrada/salida), <code>quantity</code>, <code>reason</code> (compra/merma/ajuste/venta/devolucion/produccion), <code>notes</code>.</td></tr>
+    <tr><td><code>mermas</code></td><td><code>product_id</code>, <code>user_id</code>, <code>quantity</code>, <code>reason</code> (vencido/danado/otro), <code>notes</code>, <code>type</code> (<code>merma</code>/<code>consumo</code>), <code>cost</code> (USD, nullable). Scopes: <code>mermaType()</code>, <code>consumption()</code>, <code>inRange()</code>.</td></tr>
+    <tr><td><code>exchange_rates</code></td><td><code>rate</code> (decimal 10,2), <code>source</code> (bcv/paralelo/binance/enzona/manual), <code>user_id</code>.</td></tr>
+    <tr><td><code>comandas</code></td><td><code>comanda_number</code> (correlativo diario), <code>user_id</code>, <code>status</code> (montada/entregada/cobrada), <code>customer_name</code>, <code>sale_id</code> (nullable), <code>total</code>.</td></tr>
+    <tr><td><code>comanda_items</code></td><td><code>comanda_id</code>, <code>product_id</code>/<code>combo_id</code>, <code>order_type</code> (local/para_llevar/delivery), <code>note</code>, <code>quantity</code>, <code>unit_price</code>, <code>subtotal</code>, <code>delivered_quantity</code>, <code>delivered_at</code>, <code>collected</code>.</td></tr>
+    <tr><td><code>comanda_payments</code></td><td>Pagos previos: <code>comanda_id</code>, <code>amount</code>, <code>method</code>, <code>customer_id</code>, <code>user_id</code>. Solo los <em>delivery</em> se pueden cobrar antes de entregar.</td></tr>
+    <tr><td><code>lanzador_sesiones</code></td><td>Registros del lanzador: guarda <code>token</code> como SHA-256 (nunca en claro), linked a sesiones activas.</td></tr>
+    <tr><td>infraestructura Laravel</td><td><code>sessions</code>, <code>cache</code>, <code>jobs</code>, <code>migrations</code>, <code>password_reset_tokens</code> (templates base).</td></tr>
+</table>
+
+<h3>7.2 Detalles importantes del esquema</h3>
+<ul>
+    <li><strong>Pago “credito”:</strong> PHP no crea un enum nativo en PostgreSQL para <code>sale_payments.method</code>; la migración de Laravel crea un <code>varchar(255) CHECK</code>. La migración <code>2026_09_12_000001</code> <em>elimina</em> esa constraint (buscándola en <code>pg_constraint</code>) y en SQLite hace <code>string()->change()</code>; además hace backfill de movimientos <code>pago</code> como métodos reales.</li>
+    <li><strong>Tasa congelada:</strong> <code>sales.rate</code> captura la tasa del día de la venta; se rellena con la última tasa ≤ a la fecha de creación. <code>paid_at</code> es <code>null</code> para créditos sin cobrar.</li>
+    <li><strong>Combos:</strong> el pivote usa PK compuesta <code>(combo_id, product_id)</code> con <code>quantity</code>; el modelo es <code>ComboProduct</code> (vía <code>->using()</code>).</li>
+</ul>
+
+<!-- ================= 8. ROLES Y PERMISOS ================= -->
+<div class="pagebreak"></div>
+<h2 id="t8">8. Roles y permisos</h2>
+<h3>8.1 Catálogo (8 permisos)</h3>
+<table>
+    <tr><th>Permiso (<code>key</code>)</th><th>Módulo</th></tr>
+    <tr><td><code>manage-users</code></td><td>Usuarios y roles (índice + escritura).</td></tr>
+    <tr><td><code>manage-products</code></td><td>Productos y categorías.</td></tr>
+    <tr><td><code>manage-inventory</code></td><td>Inventario y producción.</td></tr>
+    <tr><td><code>manage-waste</code></td><td>Mermas.</td></tr>
+    <tr><td><code>void-sales</code></td><td>Anulación de ventas.</td></tr>
+    <tr><td><code>manage-credits</code></td><td>Créditos y clientes.</td></tr>
+    <tr><td><code>manage-exchange-rates</code></td><td>Tasa de cambio.</td></tr>
+    <tr><td><code>view-reports</code></td><td>Reportes (todas las vistas + CSV).</td></tr>
+</table>
+<p>Abiertos a todo usuario autenticado y activo: dashboard, POS, ventas (consulta) y comandas.</p>
+<ul>
+    <li>Roles por defecto: <strong>gerente</strong> (<code>is_system</code>, todos los permisos, no eliminable) y <strong>recepcionista</strong>.</li>
+    <li>Gates registrados dinámicamente en <code>AppServiceProvider::boot()</code>; se consultan con <code>@can</code> en las vistas y en <code>routes/web.php</code>.</li>
+    <li>No se puede borrar un rol con usuarios asignados. Los tests reciben permisos mediante el rol asignado por la factory del usuario.</li>
+</ul>
+
+<!-- ================= 9. AUTENTICACIÓN ================= -->
+<div class="pagebreak"></div>
+<h2 id="t9">9. Autenticación y sesiones</h2>
+<ul>
+    <li><strong>Login por username:</strong> <code>LoginController::login</code> (mutator <code>User::setUsernameAttribute</code> normaliza a minúsculas).</li>
+    <li><strong>Throttle:</strong> 5 intentos/min por <code>usuario|IP</code> (RateLimiter), con mensaje y contador en segundos.</li>
+    <li><strong>Usuarios inactivos:</strong> rechazo en login y expulsión a mitad de sesión vía middleware <code>EnsureUserIsActive</code> (grupo web, tras <code>RegistrarLanzador</code>).</li>
+    <li><strong>Lanzador:</strong> <code>RegistrarLanzador</code> asocia la sesión con un token guardado como SHA-256; <code>POST /lanzador/cerrar-sesion</code> cierra sesión sin CSRF (llamado desde PowerShell al cerrar la ventana) con throttle <code>10,1</code>.</li>
+    <li><strong>Remember me:</strong> se usan cookies cifradas; en tests hay que reenviar cookies explícitamente (ver <code>tests/Feature/AuthTest.php</code>).</li>
+    <li><strong>Driver de sesión:</strong> <code>database</code>. El guard de auth es singleton del contenedor: entre requests de un mismo test cachea al usuario, algo a tener en cuenta al simular “sesión perdida”.</li>
+</ul>
+
+<!-- ================= 10. LÓGICA DE NEGOCIO ================= -->
+<div class="pagebreak"></div>
+<h2 id="t10">10. Lógica de negocio clave</h2>
+
+<h3>10.1 Checkout (CheckoutService)</h3>
+<p><code>CheckoutService::execute(cart, paymentMethod, customerId, userId, comandaId?)</code> es la única vía de crear ventas (POS y cobro de comandas). Comportamiento:</p>
+<ul>
+    <li>Recalcula <strong>precio y nombre desde BD</strong> (<code>combo_id</code> → componentes). Se ignora cualquier valor enviado por el cliente (<code>pos.js</code> solo manda <code>product_id</code> + <code>quantity</code>).</li>
+    <li>Requiere <strong>tasa vigente</strong>: <code>currentRate()</code> lanza <code>CheckoutException</code> si no hay <code>ExchangeRate</code> registrada.</li>
+    <li>Valida <strong>stock</strong> (productos <code>inventariable</code> por línea) con <code>lockForUpdate()</code>.</li>
+    <li>Genera <code>Sale</code> + <code>SaleItems</code>, descuenta stock, crea <code>SalePayment</code> (o <code>CreditMovement</code> si es crédito), asigna <code>sale_number</code>, vincula la comanda (estado → <code>cobrada</code>).</li>
+    <li>Todo dentro de <code>DB::transaction</code>; numeración con <code>pg_advisory_xact_lock</code> (no-op en SQLite). Lanza <code>CheckoutException</code> ante cualquier fallo.</li>
+</ul>
+
+<h3>10.2 Pricing (Support\Pricing)</h3>
+<pre><code>Pricing::bs(float $usd, float $rate, ?int $roundStep = null): float
+# bs = usd * rate  →  ceil(bs / roundStep) * roundStep  →  round(bs, 2)</code></pre>
+<p>El redondeo <code>roundStep</code> (5, 10…) se usa en el POS para precios “redondos”. Si <code>price_override</code> está activo, no se recalcula.</p>
+
+<h3>10.3 Créditos y cobro</h3>
+<ul>
+    <li>Una venta a crédito se crea con <code>payment_method='credito'</code>, <code>status='pendiente'</code>, <code>paid_at=null</code>; se genera un <code>CreditMovement</code> tipo <code>cargo</code> y se descuenta <code>customers.balance</code>.</li>
+    <li><strong>Cobro</strong> (<code>CustomerController::payCredit</code>): crea <code>SalePayment(method=real, amount=deuda×tasa)</code> del día de cobro, <code>status='completada'</code>, <code>paid_at=now()</code> y sube el saldo. Los reportes suman <strong>por fecha de cobro</strong>.</li>
+    <li><strong>Anular crédito cobrado</strong>: borra los movimientos <code>pago</code> (conserva el <code>cargo</code>), revierte <code>balance</code>, y la venta vuelve a <code>pendiente</code> (sin marcarla <code>anulada</code>).</li>
+</ul>
+
+<h3>10.4 Comandas</h3>
+<ul>
+    <li>Snapshot editable; el stock NO se descuenta al montar/entregar, solo al <strong>cobrar</strong> (reutiliza <code>CheckoutService</code> con <code>comanda_id</code>).</li>
+    <li>Entrega por unidades: <code>delivered_quantity</code>; fila entregada cuando <code>delivered_quantity >= quantity</code>; la comanda pasa a <code>entregada</code> automáticamente.</li>
+    <li><code>order_type</code>: <code>local</code> | <code>para_llevar</code> | <code>delivery</code>. Solo <code>delivery</code> se cobra por adelantado.</li>
+    <li>Numeración diaria <code>comanda_number</code> (0001…) calculada en <code>ComandaController::nextComandaNumber()</code>.</li>
+    <li>No se puede eliminar una comanda <code>cobrada</code>.</li>
+</ul>
+
+<h3>10.5 Mermas y consumo interno (multilínea)</h3>
+<ul>
+    <li>La migración <code>2026_09_05_000003</code> añade <code>mermas.cost</code> (USD); el modal permite un carrito de N líneas, cada una con producto, cantidad y costo.</li>
+    <li>Scopes en <code>Merma</code>: <code>mermaType()</code> (registros clásicos) y <code>consumption()</code> (tipo <code>consumo</code>). Reportes separan ambas poblaciones y muestran costo USD del consumo.</li>
+    <li>El dashboard maneja un KPI “Consumo interno” con costo.</li>
+</ul>
+
+<h3>10.6 Numeración y transacciones</h3>
+<p><code>sale_number</code> y <code>comanda_number</code> se generan dentro de la transacción con <code>pg_advisory_xact_lock</code> para evitar colisiones en accesos concurrentes; es no-op en SQLite para los tests.</p>
+
+<!-- ================= 11. RUTAS ================= -->
+<div class="pagebreak"></div>
+<h2 id="t11">11. Rutas de la aplicación</h2>
+<p>Todas las rutas viven en <code>routes/web.php</code>. Resumen por módulo (perfil del usuario mediante):</p>
+<table>
+    <tr><th>Módulo</th><th>Rutas (métodos / nombres)</th><th>Protección</th></tr>
+    <tr><td>Auth</td><td><code>GET|POST /login</code>, <code>POST /logout</code>, <code>POST /lanzador/cerrar-sesion</code></td><td>público (login) / auth</td></tr>
+    <tr><td>Dashboard</td><td><code>GET /dashboard</code></td><td>auth</td></tr>
+    <tr><td>POS</td><td><code>GET|POST /pos</code>, <code>GET /pos/products</code></td><td>auth</td></tr>
+    <tr><td>Comandas</td><td><code>index</code>, <code>history</code>, <code>create</code>, <code>store</code>, <code>show</code>, <code>update</code>, <code>mark-delivered</code>, <code>deliver-item</code>, <code>collect</code>, <code>close</code>, <code>destroy</code> (todos <code>GET/POST/PUT/PATCH/DELETE</code>)</td><td>auth</td></tr>
+    <tr><td>Ventas</td><td><code>index</code>, <code>show</code>, <code>destroy</code></td><td>consultas auth; <code>destroy</code> con <code>can:void-sales</code></td></tr>
+    <tr><td>Productos / Categorías / Combos</td><td>CRUD completo + <code>bulk-toggle</code>, <code>bulk-delete</code>, <code>toggle-active</code></td><td><code>can:manage-products</code></td></tr>
+    <tr><td>Inventario / Producción</td><td><code>index|store</code> y <code>index|store|destroy</code></td><td><code>can:manage-inventory</code></td></tr>
+    <tr><td>Mermas</td><td><code>index</code>, <code>store</code></td><td><code>can:manage-waste</code></td></tr>
+    <tr><td>Créditos</td><td><code>index|store|show|update</code> + <code>POST credits/{customer}/credits/{sale}/pay</code></td><td><code>can:manage-credits</code></td></tr>
+    <tr><td>Tasa de cambio</td><td><code>index</code>, <code>store</code></td><td><code>can:manage-exchange-rates</code></td></tr>
+    <tr><td>Reportes</td><td><code>index</code>, <code>sales</code>, <code>products</code>, <code>credits</code>, <code>top-days</code>, <code>waste</code>, <code>profit-margin</code>, <code>sales-by-schedule</code>, <code>slow-movers</code>, <code>weekly-performance</code>, <code>production-vs-sales</code> — todos con exportación <code>CSV</code></td><td><code>can:view-reports</code></td></tr>
+    <tr><td>Usuarios / Roles</td><td>CRUD completo + <code>toggle-active</code></td><td><code>can:manage-users</code></td></tr>
+</table>
+
+<!-- ================= 12. INTERFAZ ================= -->
+<div class="pagebreak"></div>
+<h2 id="t12">12. Interfaz de usuario</h2>
+<ul>
+    <li><strong>Layout:</strong> <code>resources/views/layouts/app.blade.php</code> (sidebar + offcanvas móvil). El menú refleja permisos con <code>@can</code>; los accesos rápidos del dashboard también están protegidos.</li>
+    <li><strong>POS:</strong> <code>pos/index.blade.php</code> + <code>resources/js/pos.js</code> (aplicación Alpine <code>posApp()</code>): filtros por categoría, búsqueda, paginación, carrito, modal de checkout con vista de recibo y modal de éxito. Los productos llegan desde el endpoint <code>/pos/products</code>.</li>
+    <li><strong>Tablas filtrables:</strong> patrón de “dos vacíos” (servidor vs filtro) usado en productos, con <code>applyFilters()</code>; el encabezado permanece siempre visible.</li>
+    <li><strong>Comandas:</strong> pantalla de “mini-POS” en <code>comandas/create</code> y edición en <code>comandas/show</code> (entrega por unidad, modal de cobro).</li>
+    <li><strong>Pricing card:</strong> en create/edit de productos con recálculo bidireccional digno de mantener coherente con <code>Pricing</code> del servidor.</li>
+    <li><strong>Modales de crédito:</strong> <code>credits/show.blade.php</code> con opciones de pago (clases <code>payment-option</code>/<code>selected</code>) y botón “Cobrar todo”.</li>
+</ul>
+
+<!-- ================= 13. PRUEBAS ================= -->
+<div class="pagebreak"></div>
+<h2 id="t13">13. Pruebas y calidad</h2>
+<h3>13.1 Suite de pruebas</h3>
+<p>Framework: <strong>PHPUnit</strong> vía <code>./vendor/bin/phpunit</code> (23 archivos bajo <code>tests/</code>). Configuración: <code>RefreshDatabase</code> + SQLite in-memory; no requiere servicios externos. Estado: <strong>304 pruebas, 990 aserciones, todas en verde</strong>.</p>
+<pre><code>./vendor/bin/phpunit                          # todo
+./vendor/bin/phpunit --filter=test_name       # una prueba
+./vendor/bin/phpunit tests/Feature/ProductTest.php   # un archivo</code></pre>
+
+<h3>13.2 Pruebas por módulo (cobertura destacada)</h3>
+<ul>
+    <li><strong>Auth:</strong> login por username, throttle (5 intentos), usuarios inactivos (login + expulsión), remember me.</li>
+    <li><strong>Checkout/POS:</strong> precios recalulados desde BD, validación de stock, numeración serializada, créditos, tasa obligatoria.</li>
+    <li><strong>Comandas:</strong> estados (montada→entregada→cobrada), entrega por unidades, cobro→sale vinculada, no se elimina cobrada.</li>
+    <li><strong>Mermas:</strong> carrito multilínea con costo, validación de stock por línea, separación merma vs consumo.</li>
+    <li><strong>Créditos:</strong> cobro real con método, anulación que abre crédito “pendiente”.</li>
+    <li><strong>Roles:</strong> gates, rol de sistema no eliminable, permisos por módulo.</li>
+</ul>
+
+<h3>13.3 Herramientas estáticas</h3>
+<pre><code>./vendor/bin/pint app/... tests/...          # estilo (PSR-12)
+./vendor/bin/phpstan analyse --memory-limit=1G   # análisis estático (nivel 5)</code></pre>
+<ul>
+    <li>El config <code>phpstan.neon</code> cubre <code>Services</code>, <code>Support</code>, <code>Exceptions</code> y modelos tipados con <code>@property</code>/<code>@property-read</code>; no cubre controllers ni modelos legacy, para no romper el baseline con ignores.</li>
+    <li>Convención: usar <code>$x->prop ?? fallback</code> en vez de <code>$x?->prop ?? fallback</code> (nullsafe.neverNull en la superficie analizada).</li>
+    <li>Las relaciones Eloquent están tipadas con PHPDoc generics (<code>@return HasMany&lt;Item, $this&gt;</code>, <code>@property-read Collection&lt;int, Item&gt;</code>).</li>
+</ul>
+
+<!-- ================= 14. DESPLIEGUE ================= -->
+<div class="pagebreak"></div>
+<h2 id="t14">14. Despliegue y producción</h2>
+<h3>14.1 Escenario soportado</h3>
+<p>PC local con Windows + PostgreSQL + PHP CLI + Node. El <strong>lanzador</strong> (PowerShell) levanta <code>artisan serve</code>, purga sesiones y registra el token de sesión del lanzador. No se usa un servidor web tipo IIS/Apache para las peticiones.</p>
+
+<h3>14.2 Checklist de producción</h3>
+<ol>
+    <li>Cambiar el password del usuario <code>admin</code> y crear cuentas individuales por persona.</li>
+    <li>Revisar <code>APP_URL</code>, <code>APP_ENV=production</code> y <code>APP_DEBUG=false</code>.</li>
+    <li><code>composer install --no-dev --optimize-autoloader</code> y <code>npm run build</code>.</li>
+    <li>Cachear: <code>php artisan config:cache</code>, <code>route:cache</code>, <code>view:cache</code>.</li>
+    <li>Respaldos de <code>casita</code> (ver §15).</li>
+    <li>Verificar red/periféricos: impresora de recibo impresa por el navegador (print CSS) si se requiriera.</li>
+</ol>
+
+<div class="warn">
+    <strong>Al tocar templates Blade:</strong> limpiar las vistas compiladas antes de exponer el cambio:
+    <code>Remove-Item storage/framework/views/*.php -Force</code> (o <code>php artisan view:clear</code>).
+</div>
+
+<!-- ================= 15. MANTENIMIENTO ================= -->
+<div class="pagebreak"></div>
+<h2 id="t15">15. Mantenimiento, respaldos y solución de problemas</h2>
+<h3>15.1 Tareas de mantenimiento</h3>
+<table>
+    <tr><th>Tarea</th><th>Comando</th></tr>
+    <tr><td>Limpiar sesiones expiradas / huérfanas del lanzador</td><td><code>php artisan sessions:purge</code></td></tr>
+    <tr><td>Limpiar vistas compiladas</td><td><code>Remove-Item storage/framework/views/*.php -Force</code></td></tr>
+    <tr><td>Recompilar assets tras cambios CSS/JS</td><td><code>npm run build</code></td></tr>
+    <tr><td>Actualizar catálogo de permisos/roles (idempotente)</td><td><code>php artisan db:seed --force</code></td></tr>
+</table>
+
+<h3>15.2 Respaldos (PostgreSQL)</h3>
+<pre><code>& "C:\Program Files\PostgreSQL\18\bin\pg_dump.exe" -h 127.0.0.1 -U postgres -Fc casita -f casita.dump
+# restaurar:
+& "C:\Program Files\PostgreSQL\18\bin\pg_restore.exe" -h 127.0.0.1 -U postgres -d casita_restore casita.dump</code></pre>
+<p>También copiar <code>.env</code> y cualquier imagen subida (p. ej. las de combos, carpeta pública). Programar respaldo diario y verificar la restauración periódicamente.</p>
+
+<h3>15.3 Problemas comunes</h3>
+<table>
+    <tr><th>Síntoma</th><th>Causa probable y solución</th></tr>
+    <tr><td>“No hay tasa de cambio registrada” en el POS</td><td>El checkout exige tasa vigente. Registrar una en el módulo Tasa de Cambio.</td></tr>
+    <tr><td>El checkout falla por stock</td><td>Productos <code>inventariable</code> sin existencias. Registrar entrada/producción.</td></tr>
+    <tr><td>Login bloqueado tras 5 intentos</td><td>Throttle temporal. Esperar el contador; de persistir, revisar <code>is_active</code> del usuario.</td></tr>
+    <tr><td>Vista con plantilla vieja</td><td>Vistas compiladas: <code>Remove-Item storage/framework/views/*.php -Force</code>.</td></tr>
+    <tr><td>Assets sin estilos nuevos</td><td>Ejecutar <code>npm run build</code> (o <code>npm run dev</code> si se desarrolla).</td></tr>
+    <tr><td>DB “borrada” al clonar/crear base docs</td><td>Usar <code>DROP DATABASE IF EXISTS</code> solo sobre bases de prueba; respaldar la base real antes de operaciones destructivas.</td></tr>
+    <tr><td>Migración de <code>sale_payments.method</code> falla en SQLite</td><td>La migración usa <code>string()->change()</code>; no intentar crear enums nativos manualmente.</td></tr>
+</table>
+
+<!-- ================= 16. REGISTRO ================= -->
+<div class="pagebreak"></div>
+<h2 id="t16">16. Registro de cambios</h2>
+<table>
+    <tr><th>Fecha</th><th>Cambio</th><th>Notas</th></tr>
+    <tr><td>2026-09</td><td>Consumo interno multilínea con costo (mermas)</td><td>Nueva columna <code>mermas.cost</code>, modal carrito, KPI en dashboard, reportes separan merma vs consumo.</td></tr>
+    <tr><td>2026-09</td><td>Reportes: separación de consumo interno</td><td>Reporte de mermas y CSV con columna Tipo/Costo USD; Producción vs Ventas con columna “Consumido”.</td></tr>
+    <tr><td>2026-09-12</td><td>Tasas congeladas y créditos cobrados</td><td><code>sales.rate</code>/<code>sales.paid_at</code>; método <code>credito</code> en <code>sale_payments</code>; ingresos por fecha de cobro.</td></tr>
+    <tr><td>2026-09-05</td><td>Combos finalizados y consumo</td><td><code>combos.image</code>; <code>round_bs</code> en productos y combos; <code>mermas.type</code>/<code>cost</code>.</td></tr>
+    <tr><td>2026-09-04</td><td>Comandas: tipos, notas y pagos</td><td><code>comanda_items.order_type/note/collected</code>; nueva tabla <code>comanda_payments</code>.</td></tr>
+    <tr><td>2026-08-31</td><td>Módulo de comandas</td><td>Tablas <code>comandas</code>/<code>comanda_items</code>, flujo montada→entregada→cobrada.</td></tr>
+    <tr><td>2026-08-24</td><td>Roles y permisos</td><td>Catálogo de 8 permisos, role/permission_role, gates dinámicos.</td></tr>
+</table>
+
+<h3>16.1 Correcciones de documentación detectadas</h3>
+<ul>
+    <li><strong>README.md / AGENTS.md</strong> mencionan <code>php artisan db:seed --class=DemoSeeder</code>; ese seeder <strong>no existe</strong> en el repositorio (solo <code>DatabaseSeeder</code> y <code>RolePermissionSeeder</code>). El dataset de demostración de este manual se construyó con un script temporal vía Tinker sobre la base <code>casita_docs</code>, sin tocar la base real.</li>
+    <li>Los conteos de pruebas citados en documentación antigua (p. ej. “224+ tests”) están desactualizados; la suite actual reporta <strong>304 pruebas / 990 aserciones</strong>.</li>
+    <li>El proyecto actualmente no tiene inicializado git (no es repositorio).</li>
+</ul>
+
+<p class="footer-note">Manual Técnico — Casita de Romila v1.0 · Septiembre 2026</p>
+
+</body>
+</html>

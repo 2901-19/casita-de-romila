@@ -187,3 +187,18 @@ Para un test o archivo concreto:
 ## Licencia
 
 Proyecto privado de *Casita de Romila*. El framework Laravel base está licenciado bajo la [MIT license](https://opensource.org/licenses/MIT).
+
+---
+
+## Acceso desde la red local
+
+- El servidor se levanta con `php artisan serve --host=<host> --port=<puerto>`; el host se configura en `launcher/config.json` (por defecto `0.0.0.0` para exponer el sistema en la LAN).
+- Otras computadoras de la misma red abren en su navegador: `http://<IP-de-esta-PC>:8000`.
+- El lanzador (`launcher/romila-launcher.ps1`) detecta la IP LAN activa en cada inicio, actualiza SOLO la linea `APP_URL=` del `.env` (para que assets y rutas funcionen en cualquier equipo y sobreviva a cambios de DHCP) y muestra un aviso con la URL al terminar de arrancar.
+- Firewall de Windows: regla `CasitaDeRomila-8000` (TCP 8000, solo perfil Private + subred local). Si hace falta recrearla (requiere admin):
+    powershell
+    New-NetFirewallRule -Name CasitaDeRomila-8000 -DisplayName "Casita de Romila (8000)" -Direction Inbound -Protocol TCP -LocalPort 8000 -Profile Private -RemoteAddress LocalSubnet -Action Allow
+    
+- `.env`: `APP_DEBUG=false` y `APP_ENV=production` (el `.env` NO se commitea).
+- El endpoint `/lanzador/cerrar-sesion` solo acepta peticiones desde loopback (127.0.0.1 / ::1), por lo que no queda expuesto a la red.
+- Nota: el servidor embebido de PHP (`artisan serve`) es la opcion ligera para LAN pequenas; si se necesita mas rendimiento o concurrencia, migrar a Nginx + PHP-CGI manteniendo el mismo flujo del lanzador.

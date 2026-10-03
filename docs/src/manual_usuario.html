@@ -1,0 +1,591 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Manual de Usuario — Casita de Romila</title>
+<style>
+    :root{
+        --brand:#ff8fda; --accent:#8fffb4; --on-brand:#3d1233; --ink:#2d1a2b;
+        --muted:#7a5f74; --line:#e8d9e6; --paper:#ffffff; --soft:#faf3f9;
+        --code-bg:#2d1a2b; --code-ink:#f4d7ef;
+    }
+    *{box-sizing:border-box;}
+    html,body{margin:0;padding:0;}
+    body{font-family:'Segoe UI','Montserrat',Arial,sans-serif;color:var(--ink);font-size:10.5pt;line-height:1.5;}
+    h1,h2,h3,h4{color:var(--on-brand);line-height:1.25;page-break-after:avoid;}
+    h1{font-size:20pt;margin:0 0 .35em;}
+    h2{font-size:15pt;margin:0 0 .4em;padding-bottom:.25em;border-bottom:2px solid var(--brand);}
+    h3{font-size:12pt;margin:1em 0 .25em;}
+    h4{font-size:10.5pt;margin:.8em 0 .2em;}
+    p{margin:.4em 0;}
+    ul,ol{margin:.3em 0 .6em;padding-left:1.4em;}
+    li{margin:.15em 0;}
+    a{color:#c23b9b;text-decoration:none;}
+    img.shot{max-width:100%;height:auto;border:1px solid var(--line);border-radius:6px;box-shadow:0 1px 4px rgba(45,26,43,.12);margin:.35em 0 .5em;page-break-inside:avoid;}
+    figcaption{font-size:8.5pt;color:var(--muted);text-align:center;margin-bottom:.8em;font-style:italic;}
+    figure{margin:.6em 0 1em;page-break-inside:avoid;}
+    .cover{height:100vh;display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;border-bottom:4px solid var(--brand);}
+    .cover .logo{font-size:52pt;color:var(--brand);}
+    .cover h1{font-size:30pt;margin:.2em 0;}
+    .cover .sub{font-size:14pt;color:var(--muted);}
+    .cover .meta{margin-top:2em;font-size:10pt;color:var(--muted);}
+    .toc{page-break-after:always;}
+    .toc h2{border-bottom:2px solid var(--brand);}
+    .toc ul{list-style:none;padding-left:0;}
+    .toc li{margin:.3em 0;font-size:10.5pt;}
+    .toc a{color:var(--ink);}
+    .pagebreak{page-break-before:always;}
+    .note{border-left:4px solid var(--brand);background:var(--soft);padding:.6em .9em;border-radius:0 6px 6px 0;margin:.7em 0;font-size:9.5pt;}
+    .warn{border-left:4px solid #ffb84d;background:#fff7ea;padding:.6em .9em;border-radius:0 6px 6px 0;margin:.7em 0;font-size:9.5pt;}
+    .tip{border-left:4px solid var(--accent);background:#f0fbf4;padding:.6em .9em;border-radius:0 6px 6px 0;margin:.7em 0;font-size:9.5pt;}
+    table{width:100%;border-collapse:collapse;margin:.5em 0 .9em;font-size:9pt;}
+    th,td{border:1px solid var(--line);padding:.35em .5em;text-align:left;vertical-align:top;}
+    th{background:var(--soft);color:var(--on-brand);}
+    code{background:var(--code-bg);color:var(--code-ink);padding:.1em .35em;border-radius:4px;font-size:90%;font-family:'Cascadia Code',Consolas,monospace;}
+    .steps{counter-reset:step;list-style:none;padding-left:0;}
+    .steps>li{counter-increment:step;position:relative;padding-left:2em;margin:.35em 0;}
+    .steps>li::before{content:counter(step);position:absolute;left:0;top:.05em;width:1.5em;height:1.5em;background:var(--brand);color:var(--on-brand);border-radius:50%;text-align:center;line-height:1.5em;font-weight:700;font-size:9pt;}
+    .badge{display:inline-block;background:var(--brand);color:var(--on-brand);border-radius:999px;padding:.1em .6em;font-size:8pt;font-weight:700;}
+    .footer-note{color:var(--muted);font-size:8.5pt;text-align:center;margin-top:1em;}
+</style>
+</head>
+<body>
+
+<!-- ================= PORTADA ================= -->
+<div class="cover">
+    <div class="logo">🏠</div>
+    <h1>Casita de Romila</h1>
+    <div class="sub">Sistema de Gestión para Panadería y Cafetería</div>
+    <p style="margin-top:.5em"><span class="badge">Manual de Usuario</span></p>
+    <div class="meta">
+        <div><strong>Versión de la aplicación:</strong> 1.0</div>
+        <div><strong>Versión del manual:</strong> 1.0</div>
+        <div><strong>Fecha:</strong> Septiembre de 2026</div>
+    </div>
+</div>
+
+<!-- ================= ÍNDICE ================= -->
+<div class="toc">
+    <h2>Índice de contenido</h2>
+    <ul>
+        <li><a href="#s1">1. Introducción</a></li>
+        <li><a href="#s2">2. Acceso al sistema</a></li>
+        <li><a href="#s3">3. Pantalla principal (Dashboard)</a></li>
+        <li><a href="#s4">4. Punto de venta (POS)</a></li>
+        <li><a href="#s5">5. Comandas (pedidos a cocina)</a></li>
+        <li><a href="#s6">6. Historial de ventas</a></li>
+        <li><a href="#s7">7. Productos y categorías</a></li>
+        <li><a href="#s8">8. Combos</a></li>
+        <li><a href="#s9">9. Inventario y producción</a></li>
+        <li><a href="#s10">10. Mermas y consumo interno</a></li>
+        <li><a href="#s11">11. Créditos y clientes</a></li>
+        <li><a href="#s12">12. Tasa de cambio</a></li>
+        <li><a href="#s13">13. Reportes</a></li>
+        <li><a href="#s14">14. Usuarios y roles</a></li>
+        <li><a href="#s15">15. Preguntas frecuentes y solución de problemas</a></li>
+        <li><a href="#s16">16. Referencia rápida</a></li>
+    </ul>
+</div>
+
+<!-- ================= 1. INTRODUCCIÓN ================= -->
+<h2 id="s1">1. Introducción</h2>
+<p><strong>Casita de Romila</strong> es un sistema de gestión pensado para una panadería y cafetería familiar. Reúne en una sola aplicación las tareas diarias del negocio:</p>
+<ul>
+    <li><strong>Ventas</strong> por punto de venta (POS) con distintos métodos de pago: efectivo, Biopago, pago móvil, PDV y venta a <em>crédito</em>.</li>
+    <li><strong>Comandas</strong>: pedidos a cocina que se montan, se entregan por unidades y se convierten en venta al cobrarse.</li>
+    <li><strong>Inventario</strong>, <strong>producción</strong>, <strong>mermas</strong> y <strong>consumo interno</strong>.</li>
+    <li><strong>Control de clientes</strong> con crédito y abonos.</li>
+    <li><strong>Tasa de cambio</strong> del día (BCV, paralelo u otro origen).</li>
+    <li><strong>Reportes</strong> de ventas, mermas, margen, producción vs ventas, entre otros.</li>
+    <li><strong>Usuarios y roles</strong> para repartir responsabilidades.</li>
+</ul>
+<p>Los precios se muestran en <strong>bolívares (Bs)</strong> calculados a partir de un precio base en <strong>dólares (USD)</strong> multiplicado por la tasa del día. Este manual explica, paso a paso, cómo usar cada pantalla.</p>
+
+<div class="note">
+    <strong>Nota sobre los datos de este manual:</strong> las imágenes fueron generadas con una base de datos de demostración. Los nombres de productos, clientes, ventas y montos son ficticios y solo sirven de ejemplo.
+</div>
+
+<!-- ================= 2. ACCESO ================= -->
+<div class="pagebreak"></div>
+<h2 id="s2">2. Acceso al sistema</h2>
+<p>Para entrar al sistema necesitas un <strong>usuario</strong> y una <strong>contraseña</strong> que te haya asignado el administrador. El acceso se hace por nombre de usuario (no por correo).</p>
+
+<h3>2.1 Iniciar sesión</h3>
+<figure>
+    <img class="shot" src="../capturas/01-login.png" alt="Pantalla de inicio de sesión">
+    <figcaption>Figura 1. Pantalla de inicio de sesión.</figcaption>
+</figure>
+<ol class="steps">
+    <li>Abre el sistema en el navegador (por ejemplo <code>http://127.0.0.1:8008</code>).</li>
+    <li>Escribe tu <strong>Usuario</strong> (ej. <code>admin</code>).</li>
+    <li>Escribe tu <strong>Contraseña</strong>. Puedes usar el icono del ojo para ver lo que escribes.</li>
+    <li>Marca <strong>“Mantener sesión abierta”</strong> si quieres que el sistema te recuerde en ese equipo.</li>
+    <li>Pulsa <strong>Iniciar Sesión</strong>.</li>
+</ol>
+
+<h3>2.2 Errores al iniciar sesión</h3>
+<ul>
+    <li><strong>Usuario o contraseña incorrectos:</strong> revisa que el usuario esté bien escrito y que la contraseña no tenga Mayúsculas activadas.</li>
+    <li><strong>“Demasiados intentos. Intenta de nuevo en X segundos”:</strong> después de 5 intentos fallidos el sistema bloquea temporalmente. Espera ese tiempo y vuelve a intentar.</li>
+    <li><strong>“Tu cuenta está inactiva. Contacta al administrador”:</strong> el administrador desactivó tu usuario; contacta a la persona encargada.</li>
+</ul>
+
+<h3>2.3 Cerrar sesión</h3>
+<p>Busca tu nombre en la barra superior y pulsa <strong>Salir</strong>. También puedes cerrar la ventana del sistema: el lanzador cierra la sesión automáticamente.</p>
+
+<div class="warn">
+    <strong>Importante:</strong> no compartas tu usuario con compañeros. Cada venta queda registrada con el usuario que la hizo, y ciertas opciones (anular ventas, ver reportes, gestionar usuarios) dependen de tu rol.
+</div>
+
+<!-- ================= 3. DASHBOARD ================= -->
+<div class="pagebreak"></div>
+<h2 id="s3">3. Pantalla principal (Dashboard)</h2>
+<figure>
+    <img class="shot" src="../capturas/02-dashboard.png" alt="Panel principal">
+    <figcaption>Figura 2. Panel principal (dashboard).</figcaption>
+</figure>
+<p>Al entrar, aparece el resumen del día. La barra lateral izquierda permite navegar a todas las secciones.</p>
+<ul>
+    <li><strong>Indicadores (KPIs):</strong> ingresos de hoy, ventas del mes, consumo interno acumulado, entre otros.</li>
+    <li><strong>Gráficos:</strong> ventas recientes y actividades del día.</li>
+    <li><strong>Accesos rápidos:</strong> botones directos a las tareas más comunes (nueva venta, nueva comanda, registrar merma, etc.).</li>
+</ul>
+<p>El menú lateral muestra <strong>solo lo que puedes usar</strong> según tu rol. Si no ves una opción, es porque tu perfil no incluye ese permiso.</p>
+
+<!-- ================= 4. POS ================= -->
+<div class="pagebreak"></div>
+<h2 id="s4">4. Punto de venta (POS)</h2>
+<p>Es la pantalla para cobrar en el mostrador: eliges productos, defines el método de pago y confirmas la venta.</p>
+
+<h3>4.1 Agregar productos al carrito</h3>
+<ol class="steps">
+    <li>Usa las <strong>categorías</strong> de la parte superior izquierda o el <strong>buscador</strong> para filtrar los productos.</li>
+    <li>Haz clic en la tarjeta de un producto para agregarlo. Los productos marcados <strong>Combo</strong> agregan todos sus componentes de una vez.</li>
+    <li>En el carrito (columna derecha) puedes <strong>sumar/restar unidades</strong> con los botones − y +, o quitar el producto con el icono de la papelera.</li>
+    <li>Usa <strong>Vaciar carrito</strong> para empezar de nuevo.</li>
+</ol>
+
+<h3>4.2 Elegir método de pago y cobrar</h3>
+<figure>
+    <img class="shot" src="../capturas/03-pos-carrito.png" alt="POS con carrito">
+    <figcaption>Figura 3. Punto de venta con dos productos y un combo en el carrito.</figcaption>
+</figure>
+<ol class="steps">
+    <li>Selecciona el <strong>método de pago</strong>: Efectivo, Biopago, Pago Móvil, PDV o Crédito.</li>
+    <li>Si eliges <strong>Crédito</strong>, se desplegará el campo <strong>Cliente</strong>: selecciona quién recibe la venta a crédito.</li>
+    <li>Pulsa <strong>Cobrar</strong>. Se abre una ventana con el resumen de la venta (productos, cantidades y total).</li>
+    <li>Revisa los datos y pulsa <strong>Confirmar venta</strong>.</li>
+</ol>
+<figure>
+    <img class="shot" src="../capturas/04-pos-checkout.png" alt="Confirmación de venta">
+    <figcaption>Figura 4. Resumen de la venta antes de confirmar.</figcaption>
+</figure>
+<ul>
+    <li>Si la venta fue a <strong>crédito</strong>, el mensaje final dirá <em>“Crédito registrado”</em> y el saldo del cliente quedará pendiente (ver sección de Créditos).</li>
+    <li>Las ventas descontarán <strong>stock</strong> de los productos tipo <em>inventariable</em>. Los de tipo <em>demanda</em> (se hacen bajo pedido) no descuentan existencias.</li>
+</ul>
+
+<div class="tip">
+    <strong>Consejo:</strong> el sistema recalcula el precio desde la base de datos en el momento de pagar, usando la tasa vigente. No es necesario memorizar precios: el carrito muestra el total al instante.
+</div>
+
+<!-- ================= 5. COMANDAS ================= -->
+<div class="pagebreak"></div>
+<h2 id="s5">5. Comandas (pedidos a cocina)</h2>
+<p>Las comandas organizan los pedidos de la noche: la recepcionista <strong>monta</strong> el pedido, la cocina <strong>entrega</strong> los productos (puede ser de a uno) y al <strong>cobrar</strong> se genera automáticamente una venta real.</p>
+
+<h3>5.1 Lista de comandas</h3>
+<figure>
+    <img class="shot" src="../capturas/05-comandas-index.png" alt="Listado de comandas">
+    <figcaption>Figura 5. Listado de comandas activas del día.</figcaption>
+</figure>
+<ul>
+    <li>La lista muestra la <strong>comanda activa</strong> del día con su estado: <strong>Montada</strong>, <strong>Entregada</strong> o <strong>Cobrada</strong>.</li>
+    <li>Filtra por <strong>Estado</strong> o por <strong>Tipo</strong> (Delivery, Consumo local, Para llevar).</li>
+    <li>Pulsa <strong>Historial</strong> para ver comandas ya cerradas.</li>
+</ul>
+
+<h3>5.2 Crear una comanda</h3>
+<ol class="steps">
+    <li>Pulsa <strong>Nueva Comanda</strong>.</li>
+    <li>Elige el <strong>tipo</strong> de cada producto: Consumo local (<em>local</em>), Para llevar (<em>para_llevar</em>) o Delivery.</li>
+    <li>Agrega los productos y cantidades (igual que el POS).</li>
+    <li>Para pedidos <strong>delivery</strong> puedes escribir el nombre del cliente; estos se cobran por adelantado.</li>
+    <li>Guarda la comanda. El número es correlativo del día (0001, 0002…).</li>
+</ol>
+<figure>
+    <img class="shot" src="../capturas/06-comandas-create.png" alt="Crear comanda">
+    <figcaption>Figura 6. Formulario para armar una comanda.</figcaption>
+</figure>
+
+<h3>5.3 Detalle, entrega y cobro</h3>
+<figure>
+    <img class="shot" src="../capturas/07-comanda-detalle.png" alt="Detalle de comanda">
+    <figcaption>Figura 7. Detalle de una comanda: entrega por unidades y opción de cobrar.</figcaption>
+</figure>
+<ol class="steps">
+    <li>Abre la comanda desde la lista (icono del ojo).</li>
+    <li>La cocina va <strong>entregando</strong> unidades con el botón de entrega (+). Cuando todas las unidades están entregadas la comanda pasa a estado <strong>Entregada</strong>.</li>
+    <li>Cuando el cliente paga, pulsa <strong>Cobrar</strong>: se abre el mismo resumen del POS y al confirmar se genera la <strong>Venta</strong> asociada (la comanda pasa a <strong>Cobrada</strong>).</li>
+    <li>Los productos <strong>delivery</strong> pueden cobrarse antes de la entrega; los demás solo cuando la comanda esté entregada.</li>
+</ol>
+
+<div class="warn">
+    <strong>Importante:</strong> el stock NO se descuenta al montar ni al entregar la comanda. Solo se descuenta al <strong>cobrar</strong>. Si eliminas una comanda cobrada, el sistema no lo permite porque ya generó una venta.
+</div>
+
+<!-- ================= 6. VENTAS ================= -->
+<div class="pagebreak"></div>
+<h2 id="s6">6. Historial de ventas</h2>
+<figure>
+    <img class="shot" src="../capturas/08-ventas-index.png" alt="Historial de ventas">
+    <figcaption>Figura 8. Historial de ventas con filtros por estado y rango de fechas.</figcaption>
+</figure>
+<p>Aquí queda el registro de todo lo vendido. Puedes filtrar por <strong>estado</strong> (Completadas, Pendientes, Anuladas) y por <strong>rango de fechas</strong>.</p>
+<ul>
+    <li><strong>Completada:</strong> venta cobrada al momento (incluye créditos ya cobrados).</li>
+    <li><strong>Pendiente:</strong> venta a crédito que aún no se cobra.</li>
+    <li><strong>Anulada:</strong> venta cancelada.</li>
+</ul>
+
+<h3>6.1 Ver detalle de una venta</h3>
+<figure>
+    <img class="shot" src="../capturas/09-venta-detalle.png" alt="Detalle de venta">
+    <figcaption>Figura 9. Detalle de una venta con sus productos, método de pago y tasa del día.</figcaption>
+</figure>
+<p>Cada venta muestra: número de venta, fecha, método de pago, productos y cantidades, subtotales y total. El monto en Bs es el <strong>fijado el día de la venta</strong> (no cambia aunque la tasa suba después). El equivalente en USD usa la tasa congelada de ese día.</p>
+
+<h3>6.2 Anular una venta</h3>
+<ol class="steps">
+    <li>Abre el detalle de la venta.</li>
+    <li>Pulsa <strong>Anular venta</strong> (requiere permiso de <em>anular ventas</em>).</li>
+    <li>Indica el <strong>motivo</strong> de la anulación.</li>
+</ol>
+<ul>
+    <li>En una venta <strong>a crédito ya cobrada</strong>, anularla devuelve el pago: la venta vuelve a quedar <em>pendiente</em> y el saldo del cliente se revierte.</li>
+    <li>En un crédito sin cobrar, la venta se marca <em>anulada</em> y se hace un abono al cliente por el monto.</li>
+</ul>
+
+<!-- ================= 7. PRODUCTOS ================= -->
+<div class="pagebreak"></div>
+<h2 id="s7">7. Productos y categorías</h2>
+
+<h3>7.1 Listado de productos</h3>
+<figure>
+    <img class="shot" src="../capturas/10-productos-index.png" alt="Listado de productos">
+    <figcaption>Figura 10. Listado de productos con filtros por nombre, categoría y tipo.</figcaption>
+</figure>
+<ul>
+    <li>La tabla muestra el precio en USD, el precio en <strong>Bs según la tasa vigente</strong> y el stock actual (para productos con control de inventario).</li>
+    <li>Usa el buscador o los filtros de la parte superior para encontrar un producto rápidamente.</li>
+    <li>El <strong>switch</strong> de cada fila activa/desactiva el producto (los inactivos no aparecen en el POS).</li>
+</ul>
+
+<h3>7.2 Tipos de producto</h3>
+<table>
+    <tr><th>Tipo</th><th>Qué significa</th><th>¿Descuenta stock?</th></tr>
+    <tr><td><strong>Inventariable</strong></td><td>Producto que tiene existencias contables (ej. empanadas, refrescos).</td><td>Sí, al vender.</td></tr>
+    <tr><td><strong>Producción</strong></td><td>Producto que se fabrica en lotes (ej. panes, tortas). Se registra en el módulo de Producción.</td><td>Sí, al vender.</td></tr>
+    <tr><td><strong>Demanda</strong></td><td>Producto que se elabora bajo pedido y no se cuenta en stock (ej. ensaladas, sopas).</td><td>No.</td></tr>
+</table>
+
+<h3>7.3 Crear o editar un producto</h3>
+<figure>
+    <img class="shot" src="../capturas/11-producto-crear.png" alt="Formulario de producto">
+    <figcaption>Figura 11. Formulario de producto con la tarjeta de precios.</figcaption>
+</figure>
+<ol class="steps">
+    <li>Pulsa <strong>Nuevo producto</strong> (o el icono de edición en la fila).</li>
+    <li>Completa <strong>Nombre</strong>, <strong>Categoría</strong> y <strong>Tipo</strong>.</li>
+    <li>En la <strong>tarjeta de precios</strong> escribe el <strong>costo en USD</strong> y el <strong>margen %</strong>; el sistema calcula automáticamente el <strong>precio de venta en USD</strong> y su equivalente en Bs.</li>
+    <li>Define el <strong>redondeo en Bs</strong> (5, 10…) para precios redondos, y el <strong>stock mínimo</strong> para alertas de inventario.</li>
+    <li>Si activas <strong>“Precio manual”</strong>, el precio en Bs no se recalcula con la tasa.</li>
+    <li>Guarda el producto.</li>
+</ol>
+<div class="note">
+    La tarjeta de precios se recalcula en ambos sentidos: puedes partir del precio final en Bs y el sistema deduce el margen y el precio en USD.
+</div>
+
+<h3>7.4 Categorías</h3>
+<figure>
+    <img class="shot" src="../capturas/12-categorias-index.png" alt="Gestión de categorías">
+    <figcaption>Figura 12. Gestión de categorías.</figcaption>
+</figure>
+<p>Desde el menú <strong>Categorías</strong> puedes agregar, renombrar o eliminar categorías. Son las mismas que aparecen como filtros en el POS y en el listado de productos.</p>
+
+<!-- ================= 8. COMBOS ================= -->
+<div class="pagebreak"></div>
+<h2 id="s8">8. Combos</h2>
+<p>Un combo agrupa varios productos en una sola tarjeta del POS con un precio único (ej. “Perro + Refresco”).</p>
+<figure>
+    <img class="shot" src="../capturas/13-combos-index.png" alt="Listado de combos">
+    <figcaption>Figura 13. Listado de combos.</figcaption>
+</figure>
+<h3>8.1 Crear un combo</h3>
+<figure>
+    <img class="shot" src="../capturas/14-combo-crear.png" alt="Formulario de combo">
+    <figcaption>Figura 14. Creación de un combo con sus componentes.</figcaption>
+</figure>
+<ol class="steps">
+    <li>Pulsa <strong>Nuevo combo</strong>.</li>
+    <li>Escribe el <strong>Nombre</strong> (ej. “Combo Familiar 2+2”).</li>
+    <li>Define el <strong>precio en USD</strong> y el redondeo en Bs.</li>
+    <li>Agrega los <strong>productos componentes</strong> y sus cantidades.</li>
+    <li>Guarda. El combo aparecerá en el POS con la etiqueta <span class="badge">Combo</span>.</li>
+</ol>
+<div class="tip">
+    Al vender un combo se descuenta el stock de <strong>cada componente</strong> según su cantidad. Ten los componentes registrados como productos inventariables.
+</div>
+
+<!-- ================= 9. INVENTARIO / PRODUCCIÓN ================= -->
+<div class="pagebreak"></div>
+<h2 id="s9">9. Inventario y producción</h2>
+
+<h3>9.1 Inventario</h3>
+<figure>
+    <img class="shot" src="../capturas/15-inventario-index.png" alt="Inventario">
+    <figcaption>Figura 15. Inventario: existencias, stock mínimo y alertas.</figcaption>
+</figure>
+<ol class="steps">
+    <li>Abre <strong>Inventario</strong> para ver las existencias de cada producto.</li>
+    <li>Pulsa <strong>Registrar movimiento</strong> para:
+        <ul>
+            <li><strong>Entrada</strong> (compra, ajuste con aumento, devolución).</li>
+            <li><strong>Salida</strong> (merma, venta manual, ajuste por disminución).</li>
+        </ul>
+    </li>
+    <li>Selecciona cantidad, motivo y una nota opcional .</li>
+</ol>
+<div class="warn">
+    Las <strong>ventas del POS ya descuentan stock</strong> automáticamente. El módulo de inventario es para casos puntuales: compras, ajustes, devoluciones y errores.
+</div>
+
+<h3>9.2 Producción</h3>
+<figure>
+    <img class="shot" src="../capturas/16-producciones-index.png" alt="Producciones">
+    <figcaption>Figura 16. Registro de lotes de producción.</figcaption>
+</figure>
+<p>Para productos de tipo <strong>Producción</strong> registra cada lote elaborado: elige el producto, la cantidad y una nota (ej. “Lote diario”). Estos registros alimentan el reporte <em>Producción vs Ventas</em>.</p>
+
+<!-- ================= 10. MERMAS Y CONSUMO ================= -->
+<div class="pagebreak"></div>
+<h2 id="s10">10. Mermas y consumo interno</h2>
+<p>Hay dos tipos de salidas de productos que debes registrar para que el inventario y los reportes reflejen la realidad:</p>
+<ul>
+    <li><strong>Merma:</strong> producto que se pierde o daña (vencido, dañado, otro).</li>
+    <li><strong>Consumo interno:</strong> producto que se toma sin venta (lo consume el dueño o el personal, con o sin costo). Se registra con un <em>carrito multilínea</em> y su costo en USD.</li>
+</ul>
+
+<h3>10.1 Registrar una merma o consumo</h3>
+<figure>
+    <img class="shot" src="../capturas/17-mermas-index.png" alt="Registro de mermas">
+    <figcaption>Figura 17. Registro de mermas y consumo con indicador del día.</figcaption>
+</figure>
+<ol class="steps">
+    <li>Abre <strong>Mermas</strong>.</li>
+    <li>Pulsa <strong>Reportar Merma</strong>.</li>
+    <li>Elige el <strong>tipo de salida</strong>: Merma o Consumo interno.</li>
+    <li>Selecciona uno o varios <strong>productos</strong> con sus cantidades. En consumo interno, indica el <strong>costo en USD</strong> de cada línea (se precarga con el costo del producto).</li>
+    <li>Indica la <strong>razón</strong> (Vencido, Dañado, Otro, Consumo del dueño) y una nota opcional.</li>
+    <li>Pulsa <strong>Registrar Merma</strong> (o <strong>Registrar Consumo</strong>).</li>
+</ol>
+<figure>
+    <img class="shot" src="../capturas/18-mermas-consumo.png" alt="Modal de consumo interno">
+    <figcaption>Figura 18. Consumo interno multilínea: varios productos con su costo en USD.</figcaption>
+</figure>
+<div class="note">
+    Las mermas <strong>descuentan stock</strong>. El consumo interno se separa de las mermas en los reportes para no mezclar pérdidas con el producto que se consume en casa.
+</div>
+
+<!-- ================= 11. CRÉDITOS ================= -->
+<div class="pagebreak"></div>
+<h2 id="s11">11. Créditos y clientes</h2>
+
+<h3>11.1 Registro de clientes y su saldo</h3>
+<figure>
+    <img class="shot" src="../capturas/19-creditos-index.png" alt="Listado de créditos">
+    <figcaption>Figura 19. Clientes con deuda y su saldo pendiente.</figcaption>
+</figure>
+<ol class="steps">
+    <li>Desde <strong>Créditos</strong> puedes registrar un <strong>nuevo cliente</strong>: nombre, teléfono y, opcionalmente, un <strong>límite de crédito</strong> (libre o por monto).</li>
+    <li>El saldo del cliente se muestra en USD: un valor negativo indica <strong>deuda</strong>.</li>
+</ol>
+
+<h3>11.2 Ficha del cliente y cobro del crédito</h3>
+<figure>
+    <img class="shot" src="../capturas/20-credito-detalle.png" alt="Ficha de crédito">
+    <figcaption>Figura 20. Ficha del cliente: movimientos, deuda en Bs y cobro del crédito.</figcaption>
+</figure>
+<ol class="steps">
+    <li>Abre el cliente para ver su <strong>historial de movimientos</strong> (cargos de ventas a crédito y abonos).</li>
+    <li>Pulsa <strong>Cobrar</strong> para liquidar la deuda: el sistema muestra el monto de la deuda convertido a Bs con la tasa del día.</li>
+    <li>Selecciona el <strong>método de pago real</strong> (efectivo, Biopago, etc.) y confirma.</li>
+</ol>
+<div class="tip">
+    <strong>Ingresos = fecha de cobro:</strong> una venta a crédito cuenta como ingreso el día en que se <strong>cobra</strong>, no cuando se hizo. Esa venta aparece como “pendiente” hasta ser cobrada.
+</div>
+
+<!-- ================= 12. TASA DE CAMBIO ================= -->
+<div class="pagebreak"></div>
+<h2 id="s12">12. Tasa de cambio</h2>
+<figure>
+    <img class="shot" src="../capturas/21-tasa-cambio-index.png" alt="Tasa de cambio">
+    <figcaption>Figura 21. Tasa de cambio vigente e historial reciente.</figcaption>
+</figure>
+<ol class="steps">
+    <li>Consulta la <strong>tasa vigente</strong> (la más reciente).</li>
+    <li>Para actualizarla, indica el valor y el <strong>origen</strong>: BCV, paralelo, Binance, EnZona o manual.</li>
+    <li>Guarda. A partir de ese momento el POS, inventario y reportes usan la nueva tasa.</li>
+</ol>
+<div class="note">
+    Las ventas ya hechas conservan la <strong>tasa del día de la venta</strong> (tasa congelada). Solo los cálculos nuevos usan la tasa vigente.
+</div>
+
+<!-- ================= 13. REPORTES ================= -->
+<div class="pagebreak"></div>
+<h2 id="s13">13. Reportes</h2>
+<p>El módulo <strong>Reportes</strong> reúne estadísticas del negocio. Casi todos permiten filtrar por <strong>rango de fechas</strong> y descargar en <strong>CSV</strong>.</p>
+
+<h3>13.1 Índice de reportes</h3>
+<figure>
+    <img class="shot" src="../capturas/22-reportes-index.png" alt="Índice de reportes">
+    <figcaption>Figura 22. Índice de reportes con accesos a cada informe.</figcaption>
+</figure>
+
+<h3>13.2 Reporte de ventas</h3>
+<figure>
+    <img class="shot" src="../capturas/23-reporte-ventas.png" alt="Reporte de ventas">
+    <figcaption>Figura 23. Reporte de ventas: ingresos, cobros y listado por cobro con su método de pago.</figcaption>
+</figure>
+<ul>
+    <li>Muestra <strong>ingresos totales</strong> (suma de cobros del período), el equivalente aproximado en USD y el promedio por cobro.</li>
+    <li>El detalle lista <strong>una fila por cobro</strong>. Un cobro de crédito aparece con la etiqueta <span class="badge">Crédito</span> y el método con el que se pagó.</li>
+    <li>Los montos en Bs son los del día de cada cobro.</li>
+</ul>
+
+<h3>13.3 Reporte de mermas y consumo</h3>
+<figure>
+    <img class="shot" src="../capturas/24-reporte-mermas.png" alt="Reporte de mermas">
+    <figcaption>Figura 24. Reporte de mermas con la sección separada de consumo interno y su costo en USD.</figcaption>
+</figure>
+<p>El reporte distingue <strong>Mermas</strong> (pérdidas) de <strong>Consumo interno</strong> (producto consumido sin venta), con su costo en USD y número de unidades afectadas.</p>
+
+<h3>13.4 Producción vs Ventas</h3>
+<figure>
+    <img class="shot" src="../capturas/25-reporte-produccion-vs-ventas.png" alt="Producción vs Ventas">
+    <figcaption>Figura 25. Producción vs Ventas: qué se fabricó, cuánto se vendió y cuánto se consumió.</figcaption>
+</figure>
+<p>Compara por producto los lotes producidos, las unidades vendidas y las consumidas internamente. Muy útil para planificar la producción del día siguiente.</p>
+
+<h3>13.5 Margen de ganancia y otros</h3>
+<figure>
+    <img class="shot" src="../capturas/26-reporte-margen.png" alt="Reporte de margen">
+    <figcaption>Figura 26. Reporte de margen por producto.</figcaption>
+</figure>
+<p>El módulo incluye además: créditos por cliente, mejores días, ventas por horario, productos lentos, desempeño semanal y margen por producto.</p>
+
+<!-- ================= 14. USUARIOS Y ROLES ================= -->
+<div class="pagebreak"></div>
+<h2 id="s14">14. Usuarios y roles</h2>
+
+<h3>14.1 Usuarios</h3>
+<figure>
+    <img class="shot" src="../capturas/27-usuarios-index.png" alt="Usuarios">
+    <figcaption>Figura 27. Gestión de usuarios del sistema.</figcaption>
+</figure>
+<ol class="steps">
+    <li>Desde <strong>Usuarios</strong> pulsa <strong>Nuevo usuario</strong>.</li>
+    <li>Indica <strong>Nombre</strong>, <strong>Usuario</strong> (nombre de acceso, se guarda en minúsculas), <strong>Contraseña</strong> y <strong>Rol</strong>.</li>
+    <li>Guarda. Puedes activar/desactivar usuarios y cambiarles el rol después.</li>
+</ol>
+<figure>
+    <img class="shot" src="../capturas/28-usuario-crear.png" alt="Crear usuario">
+    <figcaption>Figura 28. Formulario de nuevo usuario.</figcaption>
+</figure>
+
+<h3>14.2 Roles y permisos</h3>
+<figure>
+    <img class="shot" src="../capturas/29-roles-index.png" alt="Roles">
+    <figcaption>Figura 29. Roles del sistema.</figcaption>
+</figure>
+<p>Cada rol agrupa un conjunto de <strong>permisos por módulo</strong>: productos, inventario, mermas, anular ventas, créditos, tasa de cambio, reportes y usuarios. Al editar un rol marcas o desmarcas las casillas según lo que quieras permitir.</p>
+<figure>
+    <img class="shot" src="../capturas/30-rol-crear.png" alt="Crear rol">
+    <figcaption>Figura 30. Creación de un rol con permisos por módulo.</figcaption>
+</figure>
+<div class="note">
+    El sistema trae dos roles de fábrica: <strong>Gerente</strong> (todos los permisos, no se puede eliminar) y <strong>Recepcionista</strong> (ventas, comandas y consulta). Puedes crear más roles según el negocio.
+</div>
+
+<!-- ================= 15. FAQ ================= -->
+<div class="pagebreak"></div>
+<h2 id="s15">15. Preguntas frecuentes y solución de problemas</h2>
+
+<h3>¿Por qué el precio en Bs cambia de un día a otro?</h3>
+<p>Porque se calcula con la <strong>tasa de cambio vigente</strong>. Si la tasa se actualiza, los precios nuevos cambian. Las ventas ya hechas conservan el valor del día en que se hicieron.</p>
+
+<h3>Cometí un error al cobrar, ¿cómo lo corrijo?</h3>
+<p>Puedes <strong>anular la venta</strong> desde el detalle de la venta (con permiso). Si fue un crédito cobrado, la anulación devuelve el crédito a pendiente. Para un cobro equivocado en mostrador, lo más usual es anular y volver a cobrar en el POS.</p>
+
+<h3>No me deja cobrar porque el stock está en 0</h3>
+<p>El sistema valida que haya existencias de los productos <em>inventariables</em>. Registra una <strong>entrada de inventario</strong> (compra o ajuste) o registra la <strong>producción</strong> del lote antes de cobrar.</p>
+
+<h3>Puse mal un cliente en una venta a crédito</h3>
+<p>Anula la venta (la deuda se revierte) y vuelve a hacerla con el cliente correcto.</p>
+
+<h3>Un usuario quedó bloqueado ¿qué hago?</h3>
+<p>Espera los segundos que indica el mensaje, o el administrador puede comprobar el estado del usuario. El bloqueo es temporal y automático tras 5 intentos fallidos.</p>
+
+<h3>¿Cómo saco los datos para la contabilidad?</h3>
+<p>Usa los <strong>reportes</strong>. Cada reporte tiene su botón de <strong>exportar CSV</strong>, que puedes abrir en Excel u otro programa.</p>
+
+<h3>La pantalla se quedó “cargando” o no responde</h3>
+<ol class="steps">
+    <li>Refresca el navegador (F5).</li>
+    <li>Si sigue, cierra sesión y vuelve a entrar.</li>
+    <li>Si el problema continúa en varios equipos, contacta al soporte técnico (ver Manual Técnico).</li>
+</ol>
+
+<!-- ================= 16. REFERENCIA ================= -->
+<div class="pagebreak"></div>
+<h2 id="s16">16. Referencia rápida</h2>
+<h3>Secciones del menú</h3>
+<table>
+    <tr><th>Opción</th><th>Para qué sirve</th></tr>
+    <tr><td>Dashboard</td><td>Resumen del día y accesos rápidos.</td></tr>
+    <tr><td>POS / Ventas</td><td>Cobrar en mostrador.</td></tr>
+    <tr><td>Comandas</td><td>Pedidos a cocina: montar, entregar, cobrar.</td></tr>
+    <tr><td>Productos / Categorías / Combos</td><td>Catálogo del negocio y agrupaciones.</td></tr>
+    <tr><td>Inventario / Producción</td><td>Existencias, movimientos y lotes elaborados.</td></tr>
+    <tr><td>Mermas</td><td>Pérdidas y consumo interno.</td></tr>
+    <tr><td>Ventas</td><td>Historial, detalle y anulación.</td></tr>
+    <tr><td>Créditos</td><td>Clientes con saldo, ventas a crédito y cobros.</td></tr>
+    <tr><td>Tasa de cambio</td><td>Tasa vigente del día.</td></tr>
+    <tr><td>Reportes</td><td>Estadísticas y exportaciones CSV.</td></tr>
+    <tr><td>Usuarios / Roles</td><td>Accesos y permisos del personal.</td></tr>
+</table>
+
+<h3>Estados de una venta</h3>
+<table>
+    <tr><th>Estado</th><th>Significado</th></tr>
+    <tr><td><strong>Completada</strong></td><td>Cobrada al contado o crédito ya cobrado.</td></tr>
+    <tr><td><strong>Pendiente</strong></td><td>Venta a crédito sin cobrar.</td></tr>
+    <tr><td><strong>Anulada</strong></td><td>Cancelada (con motivo).</td></tr>
+</table>
+
+<h3>Estados de una comanda</h3>
+<table>
+    <tr><th>Estado</th><th>Significado</th></tr>
+    <tr><td><strong>Montada</strong></td><td>Pedido armado, esperando preparación.</td></tr>
+    <tr><td><strong>Entregada</strong></td><td>Todas las unidades entregadas, listo para cobrar (no aplica a delivery).</td></tr>
+    <tr><td><strong>Cobrada</strong></td><td>Cobrada: generó una venta real.</td></tr>
+</table>
+
+<h3>Métodos de pago</h3>
+<p>Efectivo · Biopago · Pago Móvil · PDV · Crédito.</p>
+
+<p class="footer-note">Manual de Usuario — Casita de Romila v1.0 · Septiembre 2026</p>
+
+</body>
+</html>

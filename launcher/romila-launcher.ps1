@@ -6,16 +6,24 @@
 #   3) mata el arbol de PHP.
 # Si una instancia anterior quedo huerfana (cierre forzado), la limpia al
 # iniciar para que el puerto nunca quede bloqueado.
+#
+# Red local (host != 127.0.0.1 en config.json):
+#   - El servidor queda audible en la LAN (--host=$host, normalmente 0.0.0.0).
+#   - Se detecta la IP LAN activa y se reescribe SOLO la linea `APP_URL=` del
+#     .env a http://<IP>:<puerto> para que assets y rutas generados por el
+#     servidor funcionen en cualquier equipo de la red (y sobreviva a DHCP).
+#   - Al terminar de levantar se muestra un aviso con la URL para las demas PCs.
 
 $ErrorActionPreference = 'Stop'
 
 $base = Split-Path -Parent $MyInvocation.MyCommand.Path
 $configPath = Join-Path $base 'config.json'
 
-$config = @{ port = 8000; phpPath = $null; appPath = $null; browser = 'auto' }
+$config = @{ port = 8000; host = '127.0.0.1'; phpPath = $null; appPath = $null; browser = 'auto' }
 if (Test-Path $configPath) {
     $cfg = Get-Content $configPath -Raw | ConvertFrom-Json
     if ($cfg.port)    { $config.port    = [int]$cfg.port }
+    if ($cfg.host)    { $config.host    = [string]$cfg.host }
     if ($cfg.phpPath) { $config.phpPath = [string]$cfg.phpPath }
     if ($cfg.appPath) { $config.appPath = [string]$cfg.appPath }
     if ($cfg.browser) { $config.browser = [string]$cfg.browser }
@@ -25,6 +33,20 @@ $port = $config.port
 $appDir = if ($config.appPath -and (Test-Path $config.appPath)) { $config.appPath } else { Join-Path $base '..' }
 $appDir = (Resolve-Path $appDir).Path
 $baseUrl = "http://127.0.0.1:$port"
+
+# --- Exposicion en red local: mantiene APP_URL apuntando a la IP LAN ---
+$lanUrl = $null
+if ($config.host -and $config.host -ne '127.0.0.1') {
+    $lanIp = Obtener-IpLan
+    if ($lanIp) {
+        $lanUrl = "http://${lanIp}:$port"
+        try {
+            Actualizar-AppUrl $appDir $lanIp $port
+        } catch {
+            $lanUrl = $null
+        }
+    }
+}
 
 $stateDir = Join-Path $env:LOCALAPPDATA 'CasitaDeRomila'
 New-Item -ItemType Directory -Force -Path $stateDir | Out-Null
@@ -98,6 +120,46 @@ function Localizar-Navegador() {
     return $null
 }
 
+function Obtener-IpLan() {
+    # IPv4 preferida de un adaptador activo (no loopback, sin APIPA).
+    $enLinea = @()
+    try {
+        $enLinea = [System.Net.NetworkInformation.NetworkInterface]::GetAllNetworkInterfaces() |
+            Where-Object { $_.OperationalStatus -eq 'Up' -and $_.NetworkInterfaceType -ne 'Loopback' } |
+            ForEach-Object { $_.GetIPProperties().UnicastAddresses.Address.IPAddressToString }
+    } catch { }
+
+    $candidata = Get-NetIPAddress -AddressFamily IPv4 -ErrorAction SilentlyContinue |
+        Where-Object {
+            $_.AddressState -eq 'Preferred' -and
+            $_.IPAddress -notlike '127.*' -and
+            $_.IPAddress -notlike '169.254.*' -and
+            ($enLinea -contains $_.IPAddress)
+        } |
+        Sort-Object InterfaceIndex |
+        Select-Object -First 1
+
+    if (-not $candidata) { return $null }
+    return $candidata.IPAddress
+}
+
+function Actualizar-AppUrl([string]$appDir, [string]$ip, [int]$port) {
+    # Reescribe unicamente la linea `APP_URL=` del .env (UTF-8 sin BOM),
+    # preservando el resto del archivo (incluidas credenciales).
+    $envPath = Join-Path $appDir '.env'
+    if (-not (Test-Path -LiteralPath $envPath)) { return }
+
+    $nueva = "APP_URL=http://${ip}:$port"
+    $reemplazada = $false
+    $lineas = @(Get-Content -LiteralPath $envPath) | ForEach-Object {
+        if ($_ -match '^\s*APP_URL\s*=') { $reemplazada = $true; $nueva } else { $_ }
+    }
+    if (-not $reemplazada) { $lineas += $nueva }
+
+    $encoding = New-Object System.Text.UTF8Encoding($false)
+    [System.IO.File]::WriteAllLines($envPath, $lineas, $encoding)
+}
+
 function Abrir-Ventana([string]$url) {
     $navegadorPath = Localizar-Navegador
     if (-not $navegadorPath) { throw 'No se encontro Microsoft Edge, Chrome ni Brave. Instala uno de ellos para usar Casita de Romila.' }
@@ -139,7 +201,7 @@ try {
 
     # --- Arranque del servidor ---
     $token = [guid]::NewGuid().ToString('N')
-    $phpProc = Start-Process -FilePath $php -ArgumentList @('artisan', 'serve', '--host=127.0.0.1', "--port=$port") -WorkingDirectory $appDir -WindowStyle Hidden -PassThru
+    $phpProc = Start-Process -FilePath $php -ArgumentList @('artisan', 'serve', "--host=$($config.host)", "--port=$port") -WorkingDirectory $appDir -WindowStyle Hidden -PassThru
     if (-not $phpProc) { throw 'No se pudo iniciar el servidor PHP.' }
     Set-Content -Path $pidFile -Value $phpProc.Id
     Set-Content -Path $tokenFile -Value $token
@@ -166,6 +228,10 @@ try {
         if ($browser.MainWindowHandle -ne 0) { $ventana = $true; break }
     }
     if (-not $ventana) { throw 'No se pudo abrir la ventana de Casita de Romila.' }
+
+    if ($lanUrl) {
+        Mensaje "El sistema ya esta disponible en tu red.`n`nOtras computadoras de la red abren:`n$lanUrl" 'Information'
+    }
 
     # --- Vigilancia: al cerrar la ventana, apagar todo ---
     while ($true) {
