@@ -15,7 +15,9 @@ use App\Models\SalePayment;
 use App\Support\Dates;
 use App\Traits\ExportableCsv;
 use Carbon\Carbon;
+use Dompdf\Dompdf;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\View\View;
 
@@ -38,6 +40,27 @@ class ReportController extends Controller
     protected function currentRate(): float
     {
         return (float) (ExchangeRate::latest()->first()?->rate ?? 1);
+    }
+
+    protected function productTypeOptions(): array
+    {
+        return ['inventariable', 'produccion', 'demanda', 'combo'];
+    }
+
+    protected function resolveProductType(Request $request): ?string
+    {
+        $type = strtolower((string) $request->query('type', ''));
+
+        return in_array($type, $this->productTypeOptions(), true) ? $type : null;
+    }
+
+    protected function applyProductTypeFilter(Collection $items, ?string $type): Collection
+    {
+        if ($type === null) {
+            return $items;
+        }
+
+        return $items->where('control_type', $type)->values();
     }
 
     protected function isPgsql(): bool
@@ -165,18 +188,20 @@ class ReportController extends Controller
     {
         [$from, $to] = $this->dateRange($request);
         $rate = $this->currentRate();
+        $type = $this->resolveProductType($request);
 
-        $products = $this->salesStats($from, $to, $rate);
+        $products = $this->applyProductTypeFilter($this->salesStats($from, $to, $rate), $type);
 
-        return view('reports.products', compact('products', 'from', 'to'));
+        return view('reports.products', compact('products', 'from', 'to', 'type'));
     }
 
     public function productsExport(Request $request)
     {
         [$from, $to] = $this->dateRange($request);
         $rate = $this->currentRate();
+        $type = $this->resolveProductType($request);
 
-        $products = $this->salesStats($from, $to, $rate);
+        $products = $this->applyProductTypeFilter($this->salesStats($from, $to, $rate), $type);
 
         $rows = $products->map(fn ($p) => [
             $p->name,
@@ -188,11 +213,40 @@ class ReportController extends Controller
             $p->stock_current ?? '—',
         ]);
 
+        $fileName = 'productos_'.$from.'_'.$to.($type ? '_'.$type : '').'.csv';
+
         return $this->exportCsv(
-            ['Producto', 'Categoria', 'Tipo', 'Vendidos', 'Revenue (Bs)', 'Ganancia (Bs)', 'Stock'],
+            ['Producto', 'Categoria', 'Tipo', 'Vendidos', 'Ingresos (Bs)', 'Ganancia (Bs)', 'Stock'],
             $rows,
-            "productos_{$from}_{$to}.csv"
+            $fileName
         );
+    }
+
+    public function productsPdf(Request $request)
+    {
+        [$from, $to] = $this->dateRange($request);
+        $rate = $this->currentRate();
+        $type = $this->resolveProductType($request);
+
+        $products = $this->applyProductTypeFilter($this->salesStats($from, $to, $rate), $type);
+        $totals = [
+            'revenue' => round((float) $products->sum('revenue'), 2),
+            'profit' => round((float) $products->sum('profit'), 2),
+        ];
+
+        $html = view('reports.products-pdf', compact('products', 'totals', 'from', 'to', 'type'))->render();
+
+        $pdf = new Dompdf;
+        $pdf->loadHtml($html);
+        $pdf->setPaper('A4', 'portrait');
+        $pdf->render();
+
+        $fileName = 'productos_'.$from.'_'.$to.($type ? '_'.$type : '').'.pdf';
+
+        return response($pdf->output(), 200, [
+            'Content-Type' => 'application/pdf',
+            'Content-Disposition' => 'attachment; filename="'.$fileName.'"',
+        ]);
     }
 
     protected function salesStats(string $from, string $to, float $rate)
@@ -376,7 +430,7 @@ class ReportController extends Controller
         ]);
 
         return $this->exportCsv(
-            ['Dia', 'Tickets', 'Revenue (Bs)', 'Promedio/Ticket (Bs)'],
+            ['Dia', 'Tickets', 'Ingresos (Bs)', 'Promedio/Ticket (Bs)'],
             $rows,
             "dias_top_{$from}_{$to}.csv"
         );
@@ -510,7 +564,7 @@ class ReportController extends Controller
         ]);
 
         return $this->exportCsv(
-            ['Producto', 'Categoria', 'Vendidos', 'Revenue (Bs)', 'Costo (Bs)', 'Ganancia (Bs)', 'Margen %'],
+            ['Producto', 'Categoria', 'Vendidos', 'Ingresos (Bs)', 'Costo (Bs)', 'Ganancia (Bs)', 'Margen %'],
             $rows,
             "margen_ganancia_{$from}_{$to}.csv"
         );
@@ -547,7 +601,7 @@ class ReportController extends Controller
         ]);
 
         return $this->exportCsv(
-            ['Horario', 'Tickets', 'Revenue (Bs)', 'Promedio/Ticket (Bs)'],
+            ['Horario', 'Tickets', 'Ingresos (Bs)', 'Promedio/Ticket (Bs)'],
             $rows,
             "ventas_horario_{$from}_{$to}.csv"
         );
@@ -663,7 +717,7 @@ class ReportController extends Controller
         ]);
 
         return $this->exportCsv(
-            ['Dia', 'Tickets', 'Revenue (Bs)', 'Promedio/Ticket (Bs)'],
+            ['Dia', 'Tickets', 'Ingresos (Bs)', 'Promedio/Ticket (Bs)'],
             $rows,
             "rendimiento_semanal_{$from}_{$to}.csv"
         );

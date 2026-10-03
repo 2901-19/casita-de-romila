@@ -17,7 +17,7 @@
     <div class="col-4">
         <div class="card">
             <div class="card-body py-2">
-                <p class="kpi-label mb-0">Revenue Total</p>
+                <p class="kpi-label mb-0">Ingresos Totales</p>
                 <strong class="kpi-value">Bs {{ number_format($totalRevenue, 2, ',', '.') }}</strong>
             </div>
         </div>
@@ -49,7 +49,7 @@
                         <th>Producto</th>
                         <th>Categoria</th>
                         <th class="text-end">Vendidos</th>
-                        <th class="text-end">Revenue</th>
+                        <th class="text-end" title="Total vendido (Bs) en el periodo">Ingresos (Bs)</th>
                         <th class="text-end">Costo</th>
                         <th class="text-end">Ganancia</th>
                         <th class="text-end">Margen %</th>

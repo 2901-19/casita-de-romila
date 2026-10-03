@@ -112,6 +112,7 @@ Route::middleware('auth')->group(function () {
         Route::get('reports/sales/csv', [ReportController::class, 'salesExport'])->name('reports.sales-export');
         Route::get('reports/products', [ReportController::class, 'products'])->name('reports.products');
         Route::get('reports/products/csv', [ReportController::class, 'productsExport'])->name('reports.products-export');
+        Route::get('reports/products/pdf', [ReportController::class, 'productsPdf'])->name('reports.products-pdf');
         Route::get('reports/credits', [ReportController::class, 'credits'])->name('reports.credits');
         Route::get('reports/credits/csv', [ReportController::class, 'creditsExport'])->name('reports.credits-export');
         Route::get('reports/top-days', [ReportController::class, 'topDays'])->name('reports.top-days');

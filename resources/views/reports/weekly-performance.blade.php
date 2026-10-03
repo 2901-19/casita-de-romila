@@ -21,7 +21,7 @@
                     <tr>
                         <th>Dia</th>
                         <th class="text-end">Tickets</th>
-                        <th class="text-end">Revenue (Bs)</th>
+                        <th class="text-end" title="Total vendido (Bs) en el periodo">Ingresos (Bs)</th>
                         <th class="text-end">Promedio/Ticket</th>
                     </tr>
                 </thead>

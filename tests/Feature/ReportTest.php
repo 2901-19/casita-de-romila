@@ -324,6 +324,74 @@ class ReportTest extends TestCase
         $response->assertHeader('Content-Type', 'text/csv; charset=UTF-8');
     }
 
+    public function test_products_report_filters_by_type(): void
+    {
+        $this->actingAs($this->gerente());
+
+        Product::factory()->create(['control_type' => 'produccion', 'stock_current' => 5]);
+        Product::factory()->demanda()->create(['stock_current' => 5]);
+        Product::factory()->create(['stock_current' => 5]);
+
+        $response = $this->get('/reports/products?type=produccion');
+
+        $response->assertStatus(200);
+        $response->assertViewHas('products', function ($products) {
+            return $products->isNotEmpty()
+                && $products->every(fn ($p) => $p->control_type === 'produccion');
+        });
+    }
+
+    public function test_products_report_ignores_invalid_type(): void
+    {
+        $this->actingAs($this->gerente());
+
+        Product::factory()->create(['stock_current' => 5]);
+
+        $response = $this->get('/reports/products?type=inexistente');
+
+        $response->assertStatus(200);
+        $response->assertViewHas('products', fn ($products) => $products->isNotEmpty());
+    }
+
+    public function test_products_export_respects_type_filter(): void
+    {
+        $this->actingAs($this->gerente());
+
+        Product::factory()->create(['name' => 'Cerveza Artesanal', 'control_type' => 'demanda', 'stock_current' => 8]);
+        Product::factory()->create(['name' => 'Harina Precocida', 'control_type' => 'inventariable', 'stock_current' => 3]);
+
+        $response = $this->get('/reports/products/csv?type=demanda');
+
+        $response->assertStatus(200);
+        $csv = $response->streamedContent();
+        $this->assertStringContainsString('Ingresos (Bs)', $csv);
+        $this->assertStringContainsString('Cerveza Artesanal', $csv);
+        $this->assertStringNotContainsString('Harina Precocida', $csv);
+    }
+
+    public function test_products_pdf_downloads(): void
+    {
+        $this->actingAs($this->gerente());
+
+        $response = $this->get('/reports/products/pdf');
+
+        $response->assertStatus(200);
+        $response->assertHeader('Content-Type', 'application/pdf');
+    }
+
+    public function test_products_pdf_respects_type_filter(): void
+    {
+        $this->actingAs($this->gerente());
+
+        Product::factory()->create(['control_type' => 'produccion', 'stock_current' => 5]);
+        Product::factory()->demanda()->create(['stock_current' => 5]);
+
+        $response = $this->get('/reports/products/pdf?type=demanda');
+
+        $response->assertStatus(200);
+        $response->assertHeader('Content-Type', 'application/pdf');
+    }
+
     // ─── Creditos ───────────────────────────────────────────
 
     public function test_credits_report_loads(): void

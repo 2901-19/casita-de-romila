@@ -23,6 +23,9 @@
     ];
 
     $pfQuery = isset($preserve) ? array_filter($preserve ?? []) : [];
+
+    // El select visible de tipo sustituye al hidden de preserve (evita duplicar name="type")
+    $pfHidden = ($showType ?? false) ? array_diff_key($pfQuery, ['type' => true]) : $pfQuery;
 @endphp
 
 <form method="GET" action="{{ route($route) }}" class="row g-2 align-items-end mb-3">
@@ -34,8 +37,19 @@
         <label class="form-label small text-muted mb-1">Hasta</label>
         <input type="date" name="to" class="form-control" value="{{ $pfTo }}">
     </div>
-    @if(! empty($pfQuery))
-        @foreach($pfQuery as $pk => $pv)
+    @if($showType ?? false)
+    <div class="col-6 col-sm-3">
+        <label class="form-label small text-muted mb-1">Tipo</label>
+        <select name="type" class="form-select">
+            <option value="">Todos</option>
+            @foreach(['inventariable' => 'Inventariable', 'produccion' => 'Produccion', 'demanda' => 'Demanda', 'combo' => 'Combo'] as $pfTypeKey => $pfTypeLabel)
+                <option value="{{ $pfTypeKey }}" @selected(($type ?? '') === $pfTypeKey)>{{ $pfTypeLabel }}</option>
+            @endforeach
+        </select>
+    </div>
+    @endif
+    @if(! empty($pfHidden))
+        @foreach($pfHidden as $pk => $pv)
             @if($pv !== null && $pv !== '')
                 <input type="hidden" name="{{ $pk }}" value="{{ $pv }}">
             @endif

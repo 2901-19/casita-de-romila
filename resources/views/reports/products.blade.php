@@ -6,12 +6,13 @@
 <div class="d-flex justify-content-between align-items-center mb-3">
     <h2 class="card-title mb-0">Reporte de Productos</h2>
     <div class="d-flex gap-2">
-        <a href="{{ route('reports.products-export', ['from' => $from, 'to' => $to]) }}" class="btn btn-outline-success btn-sm"><i class="bi bi-download me-1"></i> CSV</a>
+        <a href="{{ route('reports.products-export', array_merge(['from' => $from, 'to' => $to], $type ? ['type' => $type] : [])) }}" class="btn btn-outline-success btn-sm"><i class="bi bi-download me-1"></i> CSV</a>
+        <a href="{{ route('reports.products-pdf', array_merge(['from' => $from, 'to' => $to], $type ? ['type' => $type] : [])) }}" class="btn btn-outline-danger btn-sm"><i class="bi bi-file-earmark-pdf me-1"></i> PDF</a>
         <a href="{{ route('reports.index') }}" class="btn btn-outline-secondary btn-sm"><i class="bi bi-arrow-left me-1"></i> Volver</a>
     </div>
 </div>
 
-@include('reports._date-filter', ['from' => $from, 'to' => $to, 'route' => 'reports.products'])
+@include('reports._date-filter', ['from' => $from, 'to' => $to, 'route' => 'reports.products', 'type' => $type, 'showType' => true, 'preserve' => ['type' => $type]])
 
 <div class="card">
     <div class="card-body">
@@ -23,7 +24,7 @@
                         <th>Categoria</th>
                         <th>Tipo</th>
                         <th class="text-end">Vendidos</th>
-                        <th class="text-end">Revenue</th>
+                        <th class="text-end" title="Total vendido (Bs) en el periodo">Ingresos (Bs)</th>
                         <th class="text-end">Ganancia</th>
                         <th class="text-end">Stock</th>
                     </tr>
@@ -47,6 +48,7 @@
                 </tbody>
             </table>
         </div>
+        <p class="text-muted small mb-0 mt-2">Ingresos = total vendido (Bs) en el periodo, sin descontar costo. Ganancia = Ingresos − Costo.</p>
     </div>
 </div>
 @endsection
