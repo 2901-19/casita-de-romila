@@ -34,20 +34,6 @@ $appDir = if ($config.appPath -and (Test-Path $config.appPath)) { $config.appPat
 $appDir = (Resolve-Path $appDir).Path
 $baseUrl = "http://127.0.0.1:$port"
 
-# --- Exposicion en red local: mantiene APP_URL apuntando a la IP LAN ---
-$lanUrl = $null
-if ($config.host -and $config.host -ne '127.0.0.1') {
-    $lanIp = Obtener-IpLan
-    if ($lanIp) {
-        $lanUrl = "http://${lanIp}:$port"
-        try {
-            Actualizar-AppUrl $appDir $lanIp $port
-        } catch {
-            $lanUrl = $null
-        }
-    }
-}
-
 $stateDir = Join-Path $env:LOCALAPPDATA 'CasitaDeRomila'
 New-Item -ItemType Directory -Force -Path $stateDir | Out-Null
 $pidFile = Join-Path $stateDir 'php.pid'
@@ -158,6 +144,22 @@ function Actualizar-AppUrl([string]$appDir, [string]$ip, [int]$port) {
 
     $encoding = New-Object System.Text.UTF8Encoding($false)
     [System.IO.File]::WriteAllLines($envPath, $lineas, $encoding)
+}
+
+# --- Exposicion en red local: mantiene APP_URL apuntando a la IP LAN ---
+# Debe ir DESPUES de las definiciones de Obtener-IpLan/Actualizar-AppUrl:
+# en PowerShell una funcion debe estar definida antes de ser invocada.
+$lanUrl = $null
+if ($config.host -and $config.host -ne '127.0.0.1') {
+    try {
+        $lanIp = Obtener-IpLan
+        if ($lanIp) {
+            $lanUrl = "http://${lanIp}:$port"
+            Actualizar-AppUrl $appDir $lanIp $port
+        }
+    } catch {
+        $lanUrl = $null
+    }
 }
 
 function Abrir-Ventana([string]$url) {
